@@ -6,7 +6,19 @@ This projects explores how we could use a large language model to reformat text 
 
 ## Pre-requisites
 
-An environment capable of running Python and the build tool `make`
+An environment capable of running Python and the build tool `make`. 
+make will be pre-installed on most *nix systems, on Windows it can be installed via [scoop](https://scoop.sh/):
+
+1. Install scoop
+     ```
+    Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+    Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
+    ```
+1. Use scoop to install make:
+    ```{shell}
+    scoop bucket add main
+    scoop install main/make
+    ```
 
 ## Set-up
 
