@@ -49,6 +49,8 @@ def dwcaext2df(dwcafile, extensiontype="http://rs.gbif.org/terms/1.0/Description
                 if extension_line.rowtype == extensiontype:
                     # We use the header mapper to shorten the key names
                     extension_line_renamed = {header_mapper.get(key, key): value for key, value in extension_line.data.items()}
+                    # Remove HTML tags from the description column
+                    extension_line_renamed['description'] = re.sub('<\/?[a-z]+>', '', extension_line_renamed['description'])
                     # Add a coreid if its not there already
                     if not 'coreid' in extension_line_renamed.keys():
                         extension_line_renamed['coreid'] = row.id
