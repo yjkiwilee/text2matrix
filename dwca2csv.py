@@ -3,6 +3,7 @@ from dwca.read import DwCAReader
 from dwca.darwincore.utils import qualname as qn
 from dwca.read import DwCAReader
 import pandas as pd
+import re
         
 def dwca2df(dwcafile):
     with DwCAReader(dwcafile) as dwca:
@@ -20,6 +21,12 @@ def dwca2df(dwcafile):
 
         # Convert our list of dictionaries to a pandas dataframe
         df = pd.DataFrame(rows)
+
+        # Convert unmapped long header names to shorter names by truncating the URL
+        unmapped_headers = [h for h in df.columns if '/' in h] # Unmapped header names with '/'
+        unmapped_short = [re.sub('^.*\/', '', h) for h in unmapped_headers] # Extract short header names
+        df = df.rename(columns = dict(zip(unmapped_headers, unmapped_short)))
+
         return df
 
 def dwcaext2df(dwcafile, extensiontype="http://rs.gbif.org/terms/1.0/Description"):
@@ -49,6 +56,13 @@ def dwcaext2df(dwcafile, extensiontype="http://rs.gbif.org/terms/1.0/Description
 
         # Convert our list of dictionaries to a pandas dataframe
         df = pd.DataFrame(ext_rows)
+
+
+        # Convert unmapped long header names to shorter names by truncating the URL
+        unmapped_headers = [h for h in df.columns if '/' in h] # Unmapped header names with '/'
+        unmapped_short = [re.sub('^.*\/', '', h) for h in unmapped_headers] # Extract short header names
+        df = df.rename(columns = dict(zip(unmapped_headers, unmapped_short)))
+
         return df
 
 def main():
