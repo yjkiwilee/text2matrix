@@ -2,6 +2,7 @@ import argparse
 from dwca.read import DwCAReader
 from dwca.darwincore.utils import qualname as qn
 from dwca.read import DwCAReader
+from dwca.descriptors import DataFileDescriptor
 import pandas as pd
 import re
 from lxml import html
@@ -15,7 +16,11 @@ def dwca2df(dwcafile):
         header_mapper = {header:short_header for header, short_header in zip(dwca.descriptor.core.headers, dwca.descriptor.core.short_headers)}        
         # Add an extra mapping for the coreid
         header_mapper['http://rs.tdwg.org/dwc/terms/taxonID'] = 'coreid'
-
+        # Add extra mappings for headers with default values
+        missing_headers = (header for header in dwca.descriptor.core.fields if header["index"] == None)
+        for header in missing_headers:
+            header_mapper[header['term']] = re.sub("^.*\/", "", header['term'])
+        
         # Now we collate the dict format core rows
         rows = []
         # Iterate over all core rows
@@ -38,6 +43,10 @@ def dwcaext2df(dwcafile, extensiontype="http://rs.gbif.org/terms/1.0/Description
                 header_mapper = {header:short_header for header, short_header in zip(ext.headers, ext.short_headers)}
         # Add an extra mapping for the coreid
         header_mapper['http://rs.tdwg.org/dwc/terms/taxonID'] = 'coreid'
+        # Add extra mappings for headers with default values
+        missing_headers = (header for header in dwca.descriptor.core.fields if header["index"] == None)
+        for header in missing_headers:
+            header_mapper[header['term']] = re.sub("^.*\/", "", header['term'])
 
         # Now we collate the dict format rows for the selected extension type
         ext_rows = []
