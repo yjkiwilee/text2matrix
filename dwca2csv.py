@@ -4,6 +4,10 @@ from dwca.darwincore.utils import qualname as qn
 from dwca.read import DwCAReader
 import pandas as pd
 import re
+from lxml import html
+
+def strip_html(s):
+    return str(html.fragment_fromstring(s, create_parent = True).text_content())
         
 def dwca2df(dwcafile):
     with DwCAReader(dwcafile) as dwca:
@@ -21,11 +25,6 @@ def dwca2df(dwcafile):
 
         # Convert our list of dictionaries to a pandas dataframe
         df = pd.DataFrame(rows)
-
-        # Convert unmapped long header names to shorter names by truncating the URL
-        unmapped_headers = [h for h in df.columns if '/' in h] # Unmapped header names with '/'
-        unmapped_short = [re.sub('^.*\/', '', h) for h in unmapped_headers] # Extract short header names
-        df = df.rename(columns = dict(zip(unmapped_headers, unmapped_short)))
 
         return df
 
@@ -50,7 +49,7 @@ def dwcaext2df(dwcafile, extensiontype="http://rs.gbif.org/terms/1.0/Description
                     # We use the header mapper to shorten the key names
                     extension_line_renamed = {header_mapper.get(key, key): value for key, value in extension_line.data.items()}
                     # Remove HTML tags from the description column
-                    extension_line_renamed['description'] = re.sub('<\/?[a-z]+>', '', extension_line_renamed['description'])
+                    extension_line_renamed['description'] = strip_html(extension_line_renamed['description'])
                     # Add a coreid if its not there already
                     if not 'coreid' in extension_line_renamed.keys():
                         extension_line_renamed['coreid'] = row.id
@@ -58,12 +57,6 @@ def dwcaext2df(dwcafile, extensiontype="http://rs.gbif.org/terms/1.0/Description
 
         # Convert our list of dictionaries to a pandas dataframe
         df = pd.DataFrame(ext_rows)
-
-
-        # Convert unmapped long header names to shorter names by truncating the URL
-        unmapped_headers = [h for h in df.columns if '/' in h] # Unmapped header names with '/'
-        unmapped_short = [re.sub('^.*\/', '', h) for h in unmapped_headers] # Extract short header names
-        df = df.rename(columns = dict(zip(unmapped_headers, unmapped_short)))
 
         return df
 
