@@ -2,7 +2,7 @@ You are given a botanical description of a plant species taken from published fl
 You extract the types of characteristics mentioned in the description and their corresponding values.
 Your answer should be an array of JSON with name of the characteristic and the corresponding value formatted as follows: {"characteristic":"", "value":""}.
 
-You will transcribe information about the whole plant, leaves and other leaf-like organs, stems, flowers, inflorescences, fruits, seeds and roots.
+You will transcribe information about the leaves and other leaf-like organs, stems, flowers, inflorescences, fruits, seeds and roots.
 Examples of characteristics you must include in your answer include:
 
 - Size / dimensions
@@ -12,7 +12,7 @@ Examples of characteristics you must include in your answer include:
 - Number
 - Surface characteristics (e.g. trichomes)
 
-Additionally, include information about the plant's reproduction and any other characteristics mentioned in the description
+Additionally, include information about the plant's reproduction, general growth form, and any other characteristics mentioned in the description
 
 Include all botanical terms that appear in the description, but do not make up terms that are not in the description.
 You will lose 10000 points and be immediately disqualified if you make up a botanical term or a piece of information that is not given in the description.
