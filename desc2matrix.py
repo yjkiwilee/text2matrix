@@ -1,5 +1,6 @@
-from ollama import Client
+import argparse
 import json
+from ollama import Client
 
 def desc2dict(parent_model, params, sys_prompt, prompt, descriptions, host = 'http://localhost:11434', new_model = 'desc2matrix'):
     # Build modelfile
@@ -29,14 +30,19 @@ def desc2dict(parent_model, params, sys_prompt, prompt, descriptions, host = 'ht
         try:
             response_dict = json.loads(response)
             desc_dicts.append(response_dict)
-        except json.decoder.JSONDecodeError as decode_err:
+        except json.decoder.JSONDecodeError as decode_err: # Throw error if LLM returns bad string
             print('Ollama returned bad JSON string:\n{}'.format(response))
             raise decode_err
     
     # Return characteristics as array of dict
     return desc_dicts
         
-    
+def main():
+    # Create the parser
+    parser = argparse.ArgumentParser(description = 'Extract JSON/dict from description files')
+
+    # Add the arguments
+    parser.add_argument('inputfile', )
 
 
 # Model parameters
