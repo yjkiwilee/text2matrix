@@ -4,10 +4,9 @@ from ollama import Client
 
 def desc2dict(parent_model, params, sys_prompt, prompt, descriptions, host = 'http://localhost:11434', new_model = 'desc2matrix'):
     # Build modelfile
-    modelfile = '{}\n{}\n{}'.format(
+    modelfile = '{}\n{}'.format(
         'FROM {}'.format(parent_model),
-        '\n'.join(['PARAMETER {} {}'.format(param, value) for param, value in params.items()]),
-        'SYSTEM """{}"""'.format(sys_prompt)
+        '\n'.join(['PARAMETER {} {}'.format(param, value) for param, value in params.items()])
     )
 
     # Make connection to client
@@ -20,12 +19,11 @@ def desc2dict(parent_model, params, sys_prompt, prompt, descriptions, host = 'ht
     desc_dicts = []
 
     for description in descriptions:
-        response = client.chat(model = new_model,
-                            messages = [{
-                                'role': 'user',
-                                'content': '{}\nDescription:{}'.format(prompt, description)
-                            }])['message']['content']
-        
+        # Generate response while specifying system prompt
+        response = client.generate(model = new_model,
+                                   prompt = '{}\nDescription:{}'.format(prompt, description),
+                                   system = sys_prompt)['response']
+
         # Attempt to parse prompt as JSON
         try:
             response_dict = json.loads(response)
