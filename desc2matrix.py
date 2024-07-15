@@ -42,29 +42,40 @@ def main():
     parser = argparse.ArgumentParser(description = 'Extract JSON/dict from description files')
 
     # Add the arguments
-    parser.add_argument('inputfile', )
+    parser.add_argument('descfile', type = str, help = 'File containing the descriptions separated by newline')
+    parser.add_argument('outputfile', type = str, help = 'File to write JSON to')
+    parser.add_argument('--model', required = False, type = str, default = 'llama3', help = 'Name of base LLM to use')
+    parser.add_argument('--temperature', required = False, type = float, default = 0.1, help = 'Model temperature between 0 and 1')
+    parser.add_argument('--seed', required = False, type = int, default = 0, help = 'Model seed value')
+    parser.add_argument('--sys_prompt', required = False, type = str, help = 'Text file with the system prompt')
+    parser.add_argument('--prompt', required = False, type = str, help = 'Text file with the prompt')
 
+    # Parse the arguments
+    args = parser.parse_args()
 
-# Model parameters
-parent_model = "llama3"
-model_params = {"temperature": 0.1}
+    # Set default prompt.txt and sys_prompt.txt URL if not given
+    if args.sys_prompt == None:
+        args.sys_prompt = './prompts/prompt.txt'
+    if args.prompt == None:
+        args.prompt = './prompts/sys_prompt.txt'
 
-# Definitions of system and user prompts
-system_prompt = """
-You are a robot who is processing text from botanical descriptions of plants. You were made by an expert botanist, so you know what different botanical terminology mean. You can only speak in JSON, so all your responses should be in JSON, without introductory text.
-"""
-prompt = """
-You are given a botanical description of a plant species taken from published floras.
-You extract the types of characteristics mentioned in the description and their corresponding values.
-The JSON should be an array of JSON with name of the characteristic and the corresponding value formatted as follows: {"characteristic":"", "value":""}.
-Break down the characteristics as finely as possible. Keep the description of each characteristic as concise as possible so that each value is no longer than 4 words.
-Do not omit any information included in the description.
-Never include any introductory text other than the valid JSON.
-"""
-test_descriptions = ["""
-Subshrub, ca. 3 m high, monoecious, pubescent, with both dendritic greyish trichomes, 0.1–0.4 mm long, and microscopic glandular trichomes. Stem erect, fleshy, pubescent; internodes 1–3.5 cm long. Stipules 2.5–3 × 0.7–1.5 cm, lanceolate, apex apiculate, margin entire, pubescent, carinate, appressed, caducous. Leaves: petiole 6.3–11.6 cm long, cylindrical, pubescent; blade 13–18 × 19–28 cm, transversally elliptic, deeply lobed (lobes approximately half the length of their main vein), 6 or 7 lobes, asymmetric, basifi xed; base cordate; lobes with acute apex; margin serrulate; pubescent on both surfaces, more densely so on abaxial surface, discolorous, adaxial surface green, abaxial surface green-cinereous; venation actinodromous, 6 or 7 veins at base, slightly thickened. Infl orescence: dichasial cyme 32–39 cm long, ca. 180 flowers; peduncle 23.5– 27 cm long, cinereous; fi rst order bracts 4–6 × 1.5–2.5 mm, lanceolate, apex acuminate, margin entire, caducous. Staminate fl owers: pedicel 1–1.4 cm long, pilose; tepals 4, white, the outer pair larger 6–7.2 × 3–4 mm, ovate to elliptic, apex acute to obtuse, margin entire, concave, glabrescent on abaxial surface, the inner pair 5–6.2 × 1.8–2.3 mm, oblong to oblanceolate, apex obtuse to rounded, margin entire, concave, glabrous; androecium actinomorphic, stamens 32–48, fi laments 0.2–0.9 mm long, free, anthers 1–1.3 mm long, rimose, connective prolonged. Pistillate flowers [not seen]: bracteoles 2, opposite, borne on pedicel, just below ovary, caducous [scars seen on the pedicel from capsules]; styles 3, 1.6–2 mm long, bifi d, branches spirally-arranged, stigmatic papillae covering branches, stigmatic surface papillose, yellow [obtained from capsules]; ovary 5–6.7 mm long, trilocular, placentation axile, placenta entire [observed from capsules]. Capsules 6–7.5 × 11–14.6 mm [including wings], three-winged, glabrescent, brown when mature, dehiscing at the basal portion; wings unequal, larger one 5–7 × 6–7 mm, apex obtuse to rounded, smaller ones 5.8–7 × 0.6–1.6 mm. Seeds ca. 0.3 mm long, oblong.
-"""]
+    # Open descfile
+    with open(args.descfile, 'r') as descfile, open(args.sys_prompt, 'r') as syspromptfile, open(args.prompt, 'r') as promptfile:
+        # Read relevant files
+        descs = descfile.read().split('\n')
+        sys_prompt = syspromptfile.read()
+        prompt = promptfile.read()
 
-response = desc2dict(parent_model, model_params, system_prompt, prompt, test_descriptions)
+        # Pass to desc2dict to extract descriptions as dict
+        descdict = desc2dict(parent_model = args.model,
+                             params = {'temperature': args.temperature, 'seed': args.seed},
+                             sys_prompt = sys_prompt,
+                             prompt = prompt,
+                             descriptions = descs)
+        
+        # Write dict as json
+        with open(args.outputfile, 'w') as outfile:
+            json.dump(descdict, outfile)
 
-print(response)
+if __name__ == '__main__':
+    main()
