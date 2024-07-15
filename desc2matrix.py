@@ -21,7 +21,7 @@ def desc2dict(parent_model, params, sys_prompt, prompt, descriptions, host = 'ht
     for description in descriptions:
         # Generate response while specifying system prompt
         response = client.generate(model = new_model,
-                                   prompt = '{}\nDescription:{}'.format(prompt, description),
+                                   prompt = '{}\nDescription:\n{}'.format(prompt, description),
                                    system = sys_prompt)['response']
 
         # Attempt to parse prompt as JSON
