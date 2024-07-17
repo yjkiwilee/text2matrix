@@ -1,3 +1,4 @@
 pandas
 python-dwca-reader
 argparse
+nltk
