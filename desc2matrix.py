@@ -2,25 +2,19 @@ import argparse
 import json
 from ollama import Client
 
-def desc2dict(parent_model, params, sys_prompt, prompt, descriptions, host = 'http://localhost:11434', new_model = 'desc2matrix'):
+def desc2dict(sys_prompt, prompt, descriptions, ollama, model = 'desc2matrix'):
     # Build modelfile
     modelfile = '{}\n{}'.format(
         'FROM {}'.format(parent_model),
         '\n'.join(['PARAMETER {} {}'.format(param, value) for param, value in params.items()])
     )
 
-    # Make connection to client
-    client = Client(host = host)
-
-    # Create model with the specified params
-    client.create(model = new_model, modelfile = modelfile)
-
     # Pass descriptions to LLM for response
     desc_dicts = []
 
     for description in descriptions:
         # Generate response while specifying system prompt
-        response = client.generate(model = new_model,
+        response = ollama.generate(model = model,
                                    prompt = '{}\nDescription:\n{}'.format(prompt, description),
                                    system = sys_prompt)['response']
 
