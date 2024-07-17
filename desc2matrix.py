@@ -30,12 +30,29 @@ def desc2list(sys_prompt, prompt, descs, client, model = 'desc2matrix'):
 
     # Pass descriptions to LLM for response
     for desc in descs:
-        response = client.generate(model = 'desc2matrix',
+        response = client.generate(model = model,
                                 prompt = prompt + '\n' + desc,
                                 system = sys_prompt)['response']
         liststrs.append(response)
     
     return liststrs
+
+def list2dict(sys_prompt, prompt, liststrs, client, model = 'desc2matrix'):
+    # List to store dicts
+    desc_dicts = []
+
+    # Pass liststrs to LLM for response
+    for liststr in liststrs:
+        # Generate response
+        response = client.generate(model = 'desc2matrix',
+                            prompt = prompt + '\n' + liststr,
+                            system = sys_prompt)['response']
+        # Parse response to dict
+        resp_dict = json.loads(response)
+        # Add to list
+        desc_dicts.append(resp_dict)
+
+    return desc_dicts
 
 def main():
     # Create the parser
@@ -104,7 +121,8 @@ def main():
         
         # Write dict as json
         with open(args.outputfile, 'w') as outfile:
-            json.dump(descdict, outfile)
+            # json.dump(descdict, outfile)
+            outfile.write(descdict[0])
 
 if __name__ == '__main__':
     main()
