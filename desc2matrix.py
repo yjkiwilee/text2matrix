@@ -116,13 +116,11 @@ def main():
                     prompts[ftype] = fp.read()
             
             desclists = desc2list(prompts['d2l_sys_prompt'], prompts['d2l_prompt'], descs, client)
-            # descdict = list2dict(prompts['l2d_sys_prompt'], prompts['l2d_prompt'], descs, client)
-            descdict = desclists
+            descdict = list2dict(prompts['l2d_sys_prompt'], prompts['l2d_prompt'], desclists, client)
         
         # Write dict as json
         with open(args.outputfile, 'w') as outfile:
-            # json.dump(descdict, outfile)
-            outfile.write(descdict[0])
+            json.dump(descdict, outfile)
 
 if __name__ == '__main__':
     main()
