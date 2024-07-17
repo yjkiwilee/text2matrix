@@ -1,6 +1,7 @@
 import argparse
 import json
 from ollama import Client
+import os
 
 def desc2dict(sys_prompt, prompt, descriptions, client, model = 'desc2matrix'):
     # Pass descriptions to LLM for response
@@ -43,27 +44,19 @@ def main():
     # Add the arguments
     parser.add_argument('descfile', type = str, help = 'File containing the descriptions separated by newline')
     parser.add_argument('outputfile', type = str, help = 'File to write JSON to')
+    parser.add_argument('--mode', required = True, type = str, choices = ['desc2dict', 'desc2list2dict'], help = 'Transcription mode to use')
     parser.add_argument('--model', required = False, type = str, default = 'llama3', help = 'Name of base LLM to use')
     parser.add_argument('--temperature', required = False, type = float, default = 0.1, help = 'Model temperature between 0 and 1')
     parser.add_argument('--seed', required = False, type = int, default = 0, help = 'Model seed value')
-    parser.add_argument('--sys_prompt', required = False, type = str, help = 'Text file with the system prompt')
-    parser.add_argument('--prompt', required = False, type = str, help = 'Text file with the prompt')
+    parser.add_argument('--promptsdir', required = False, type = str, default = './prompts', help = 'Folder storing the prompt files')
 
     # Parse the arguments
     args = parser.parse_args()
 
-    # Set default prompt.txt and sys_prompt.txt URL if not given
-    if args.sys_prompt == None:
-        args.sys_prompt = './prompts/prompt.txt'
-    if args.prompt == None:
-        args.prompt = './prompts/sys_prompt.txt'
-
     # Open descfile
-    with open(args.descfile, 'r') as descfile, open(args.sys_prompt, 'r') as syspromptfile, open(args.prompt, 'r') as promptfile:
+    with open(args.descfile, 'r') as descfile:
         # Read relevant files
         descs = descfile.read().split('\n')
-        sys_prompt = syspromptfile.read()
-        prompt = promptfile.read()
 
         # Build params
         params = {'temperature': args.temperature, 'seed': args.seed}
@@ -80,8 +73,34 @@ def main():
         # Create model with the specified params
         client.create(model = 'desc2matrix', modelfile = modelfile)
 
-        # Pass to desc2dict to extract descriptions as dict
-        descdict = desc2dict(sys_prompt, prompt, descs, client)
+        # Check given transcription mode
+        if(args.mode == 'desc2dict'):
+
+            # Open & read sys_prompt.txt and prompt.txt
+            prompt_fnames = ['sys_prompt.txt', 'prompt.txt']
+            prompt_ftypes = ['sys_prompt', 'prompt']
+            prompts = {}
+
+            for fname, ftype in zip(prompt_fnames, prompt_ftypes):
+                with open(os.path.join(args.promptsdir, fname), 'r') as fp:
+                    prompts[ftype] = fp.read()
+
+            descdict = desc2dict(prompts['sys_prompt'], prompts['prompt'], descs, client)
+
+        elif(args.mode == 'desc2list2dict'):
+            
+            # Open & read d2l_sys_prompt.txt, d2l_prompt.txt, l2d_sys_prompt.txt, l2d_prompt.txt
+            prompt_fnames = ['d2l_sys_prompt.txt', 'd2l_prompt.txt', 'l2d_sys_prompt.txt', 'l2d_prompt.txt']
+            prompt_ftypes = ['d2l_sys_prompt', 'd2l_prompt', 'l2d_sys_prompt', 'l2d_prompt']
+            prompts = {}
+
+            for fname, ftype in zip(prompt_fnames, prompt_ftypes):
+                with open(os.path.join(args.promptsdir, fname), 'r') as fp:
+                    prompts[ftype] = fp.read()
+            
+            desclists = desc2list(prompts['d2l_sys_prompt'], prompts['d2l_prompt'], descs, client)
+            # descdict = list2dict(prompts['l2d_sys_prompt'], prompts['l2d_prompt'], descs, client)
+            descdict = desclists
         
         # Write dict as json
         with open(args.outputfile, 'w') as outfile:
