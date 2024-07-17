@@ -10,7 +10,7 @@ def desc2dict(sys_prompt, prompt, descriptions, client, model = 'desc2matrix'):
     for description in descriptions:
         # Generate response while specifying system prompt
         response = client.generate(model = model,
-                                   prompt = '{}\nDescription:\n{}'.format(prompt, description),
+                                   prompt = prompt + '\n' + description,
                                    system = sys_prompt)['response']
 
         # Attempt to parse prompt as JSON
@@ -31,7 +31,7 @@ def desc2list(sys_prompt, prompt, descs, client, model = 'desc2matrix'):
     # Pass descriptions to LLM for response
     for desc in descs:
         response = client.generate(model = 'desc2matrix',
-                                prompt = prompt.format(desc),
+                                prompt = prompt + '\n' + desc,
                                 system = sys_prompt)['response']
         liststrs.append(response)
     
@@ -88,7 +88,7 @@ def main():
             descdict = desc2dict(prompts['sys_prompt'], prompts['prompt'], descs, client)
 
         elif(args.mode == 'desc2list2dict'):
-            
+
             # Open & read d2l_sys_prompt.txt, d2l_prompt.txt, l2d_sys_prompt.txt, l2d_prompt.txt
             prompt_fnames = ['d2l_sys_prompt.txt', 'd2l_prompt.txt', 'l2d_sys_prompt.txt', 'l2d_prompt.txt']
             prompt_ftypes = ['d2l_sys_prompt', 'd2l_prompt', 'l2d_sys_prompt', 'l2d_prompt']

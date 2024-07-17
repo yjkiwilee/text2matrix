@@ -16,3 +16,5 @@ Additionally, include information about the plant's reproduction, general growth
 
 Include all botanical terms that appear in the description, but do not make up terms that are not in the description.
 You will lose 10000 points and be immediately disqualified if you make up a botanical term or a piece of information that is not given in the description.
+
+Description:
