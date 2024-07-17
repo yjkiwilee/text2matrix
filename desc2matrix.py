@@ -2,19 +2,13 @@ import argparse
 import json
 from ollama import Client
 
-def desc2dict(sys_prompt, prompt, descriptions, ollama, model = 'desc2matrix'):
-    # Build modelfile
-    modelfile = '{}\n{}'.format(
-        'FROM {}'.format(parent_model),
-        '\n'.join(['PARAMETER {} {}'.format(param, value) for param, value in params.items()])
-    )
-
+def desc2dict(sys_prompt, prompt, descriptions, client, model = 'desc2matrix'):
     # Pass descriptions to LLM for response
     desc_dicts = []
 
     for description in descriptions:
         # Generate response while specifying system prompt
-        response = ollama.generate(model = model,
+        response = client.generate(model = model,
                                    prompt = '{}\nDescription:\n{}'.format(prompt, description),
                                    system = sys_prompt)['response']
 
@@ -103,12 +97,26 @@ def main():
         sys_prompt = syspromptfile.read()
         prompt = promptfile.read()
 
+        # Build params
+        params = {'temperature': args.temperature, 'seed': args.seed}
+
+        # Build modelfile
+        modelfile = '{}\n{}'.format(
+            'FROM {}'.format(args.model),
+            '\n'.join(['PARAMETER {} {}'.format(param, value) for param, value in params.items()])
+        )
+
+        # Make connection to client
+        client = Client(host = 'http://localhost:11434')
+
+        # Create model with the specified params
+        client.create(model = 'desc2matrix', modelfile = modelfile)
+
         # Pass to desc2dict to extract descriptions as dict
-        descdict = desc2dict(parent_model = args.model,
-                             params = {'temperature': args.temperature, 'seed': args.seed},
-                             sys_prompt = sys_prompt,
+        descdict = desc2dict(sys_prompt = sys_prompt,
                              prompt = prompt,
-                             descriptions = descs)
+                             descriptions = descs,
+                             client = client)
         
         # Write dict as json
         with open(args.outputfile, 'w') as outfile:
