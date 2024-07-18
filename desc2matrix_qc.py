@@ -18,11 +18,13 @@ def get_word_set(descstr):
     # Gather stop words
     stop_words = set(stopwords.words('english'))
 
-    # Insert whitespace after period, comma, colon and semicolon
+    # Insert whitespace before/after period, comma, colon, semicolon and brackets
     descstr = re.sub(r'[^0-9] *\. *[^0-9]', '. ', descstr) # Do not substitute periods in floating-point numbers
     descstr = re.sub(r' *, *', ', ', descstr)
     descstr = re.sub(r' *: *', ': ', descstr)
     descstr = re.sub(r' *; *', '; ', descstr)
+    descstr = re.sub(r' *\( *', ' (', descstr)
+    descstr = re.sub(r' *\) *', ') ', descstr)
 
     # Collapse numeric ranges to single 'word' to check for presence
     descstr = re.sub(r'([0-9]) *- * ([0-9])', r'\1-\2', descstr)
@@ -30,8 +32,8 @@ def get_word_set(descstr):
     # Tokenise words, remove stop words, convert to lowercase
     descset = set([w.lower() for w in nltk.word_tokenize(descstr) if not w.lower() in stop_words])
 
-    # Remove punctuations
-    descset = descset.difference({'.', ',', ':', ';', '“', '”', '"', "'"})
+    # Remove punctuations & brackets
+    descset = descset.difference({'.', ',', ':', ';', '“', '”', '"', "'", "(", ")"})
 
     # Singularise nouns (duplicates will automatically be merged since this is a set)
     descset_n = set([w for w in descset
