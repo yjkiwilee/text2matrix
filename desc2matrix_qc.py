@@ -90,9 +90,9 @@ def main():
     # Go through each description
     for i, descset, descset_f, desc_dat in zip(list(range(0, len(descsets))), descsets, descsets_f, desc_output):
         # Calculate word match proportions
-        common_words = descset.intersection(descset_f)
-        original_only = descset.difference(descset_f)
-        json_only = descset_f.difference(descset)
+        common_words = sorted(descset.intersection(descset_f))
+        original_only = sorted(descset.difference(descset_f))
+        json_only = sorted(descset_f.difference(descset))
         nwords_recovered = len(common_words)
         nwords_omitted = len(original_only)
         nwords_created = len(json_only)
