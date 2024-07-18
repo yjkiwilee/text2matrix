@@ -48,8 +48,12 @@ def list2dict(sys_prompt, prompt, liststrs, client, model = 'desc2matrix'):
         response = client.generate(model = 'desc2matrix',
                             prompt = prompt + '\n' + liststr,
                             system = sys_prompt)['response']
-        # Parse response to dict
-        resp_dict = json.loads(response)
+        # Attempt to parse response to dict
+        try:
+            resp_dict = json.loads(response)
+        except json.decoder.JSONDecodeError as decode_err: # Throw error if LLM returns bad string
+            print('Ollama returned bad JSON string:\n{}'.format(response))
+            raise decode_err
         # Add to list
         desc_dicts.append(resp_dict)
 
