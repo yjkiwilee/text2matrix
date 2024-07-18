@@ -135,6 +135,8 @@ def main():
     # Create model with the specified params
     client.create(model = 'desc2matrix', modelfile = modelfile)
 
+    outdict = None
+
     # Check given transcription mode
     if(args.mode == 'desc2dict'):
 
@@ -147,7 +149,14 @@ def main():
             with open(os.path.join(args.promptsdir, fname), 'r') as fp:
                 prompts[ftype] = fp.read()
 
-        descdict = desc2dict(prompts['sys_prompt'], prompts['prompt'], descs, client, silent = args.silent == True)
+        descdicts = desc2dict(prompts['sys_prompt'], prompts['prompt'], descs, client, silent = args.silent == True)
+
+        # Build output JSON
+        outdict = [{
+            'coreid': descdf.iloc[rowid]['coreid'],
+            'original_description': descdf.iloc[rowid]['description'],
+            'char_json': dd
+        } for rowid, dd in enumerate(descdicts)]
 
     elif(args.mode == 'desc2list2dict'):
 
@@ -161,14 +170,15 @@ def main():
                 prompts[ftype] = fp.read()
         
         desclists = desc2list(prompts['d2l_sys_prompt'], prompts['d2l_prompt'], descs, client, silent = args.silent == True)
-        descdict = list2dict(prompts['l2d_sys_prompt'], prompts['l2d_prompt'], desclists, client, silent = args.silent == True)
-    
-    # Build output JSON
-    outdict = [{
-        'coreid': descdf.iloc[rowid]['coreid'],
-        'original_description': descdf.iloc[rowid]['description'],
-        'char_json': dd
-    } for rowid, dd in enumerate(descdict)]
+        descdicts = list2dict(prompts['l2d_sys_prompt'], prompts['l2d_prompt'], desclists, client, silent = args.silent == True)
+
+        # Build output JSON
+        outdict = [{
+            'coreid': descdf.iloc[rowid]['coreid'],
+            'original_description': descdf.iloc[rowid]['description'],
+            'char_list': dl,
+            'char_json': dd
+        } for rowid, dl, dd in zip(list(range(0, len(descdicts))), desclists, descdicts)]
 
     # Write output as JSON
     with open(args.outputfile, 'w') as outfile:
