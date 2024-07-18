@@ -18,14 +18,15 @@ def regularise_dict(dict):
         if set(char.keys()) != {'characteristic', 'value'}:
             return False
         
-        # Skip if value is None and similarly 'null-y' values
+        # Skip if value is None
         if char['value'] == None:
-            continue
-        if char['value'].lower() in ['unknown', 'null', 'not applicable']:
             continue
         
         # Convert value to string
         char['value'] = str(char['value'])
+
+        # Append characteristic to new dict
+        new_dict.append(char)
     
     # Return the new dict
     return new_dict
@@ -68,46 +69,42 @@ def desc2dict(sys_prompt, prompt, descriptions, client, model = 'desc2matrix', s
     # Return characteristics as array of dict
     return desc_dicts
 
-def desc2list(sys_prompt, prompt, descs, client, model = 'desc2matrix', silent = False):
-    # List to store list strings
-    liststrs = []
+def desc2list2dict(d2l_sys_prompt, d2l_prompt, l2d_sys_prompt, l2d_prompt, descs, client, model = 'desc2matrix', silent = False):
+    # List to store intermediate lists and final JSONs
+    desc_lists = []
+    desc_dicts = []
 
     # Pass descriptions to LLM for response
     for i, desc in enumerate(descs):
+        # Progress log
         start = 0
         if not silent:
             print('desc2list: processing {}/{}... '.format(i+1, len(descs)), end = '', flush = True)
             start = time.time()
+        
+        # Generate list string
+        liststr = client.generate(model = model,
+                                prompt = d2l_prompt + '\n' + desc,
+                                system = d2l_sys_prompt)['response']
+        
+        # Append list string
+        desc_lists.append(liststr)
 
-        response = client.generate(model = model,
-                                prompt = prompt + '\n' + desc,
-                                system = sys_prompt)['response']
-        liststrs.append(response)
-
+        # Progress log
         if not silent:
             elapsed_t = time.time() - start
             print(f'done in {elapsed_t:.2f} s!')
-    
-    return liststrs
-
-def list2dict(sys_prompt, prompt, liststrs, client, model = 'desc2matrix', silent = False):
-    # List to store dicts
-    desc_dicts = []
-
-    # Pass liststrs to LLM for response
-    for i, liststr in enumerate(liststrs):
-        start = 0
-        if not silent:
-            print('list2dict: processing {}/{}... '.format(i+1, len(liststrs)), end = '', flush = True)
+            print('list2dict: processing {}/{}... '.format(i+1, len(descs)), end = '', flush = True)
             start = time.time()
         
-        # Generate response
-        response = client.generate(model = 'desc2matrix',
-                            prompt = prompt + '\n' + liststr,
-                            system = sys_prompt)['response']
+        # Generate JSON response
+        json_resp = client.generate(model = 'desc2matrix',
+                            prompt = l2d_prompt + '\n' + liststr,
+                            system = l2d_sys_prompt)['response']
+        
         # Attempt to parse response to dict
         try:
-            resp_dict = json.loads(response)
+            resp_dict = json.loads(json_resp)
             # Check validity / regularise dict
             reg_resp_dict = regularise_dict(resp_dict)
             if reg_resp_dict != False:
@@ -118,14 +115,15 @@ def list2dict(sys_prompt, prompt, liststrs, client, model = 'desc2matrix', silen
                 desc_dicts.append(None) # Append None == null if not valid
         except json.decoder.JSONDecodeError as decode_err: # If LLM returns bad string
             if not silent:
-                print('Ollama returned bad JSON string:\n{}'.format(response))
+                print('Ollama returned bad JSON string:\n{}'.format(json_resp))
             desc_dicts.append(None) # Append None == null
         
         if not silent:
             elapsed_t = time.time() - start
             print(f'done in {elapsed_t:.2f} s!')
-
-    return desc_dicts
+    
+    # Return desc_lists and desc_dicts as a dictionary
+    return {'lists': desc_lists, 'dicts': desc_dicts}
 
 def main():
     # Create the parser
@@ -189,14 +187,14 @@ def main():
             with open(os.path.join(args.promptsdir, fname), 'r') as fp:
                 prompts[ftype] = fp.read()
 
-        descdicts = desc2dict(prompts['sys_prompt'], prompts['prompt'], descs, client, silent = args.silent == True)
+        desc_dicts = desc2dict(prompts['sys_prompt'], prompts['prompt'], descs, client, silent = args.silent == True)
 
         # Build output JSON
         outdict = [{
             'coreid': descdf.iloc[rowid]['coreid'],
             'original_description': descdf.iloc[rowid]['description'],
             'char_json': dd
-        } for rowid, dd in enumerate(descdicts)]
+        } for rowid, dd in enumerate(desc_dicts)]
 
     elif(args.mode == 'desc2list2dict'):
 
@@ -209,8 +207,9 @@ def main():
             with open(os.path.join(args.promptsdir, fname), 'r') as fp:
                 prompts[ftype] = fp.read()
         
-        desclists = desc2list(prompts['d2l_sys_prompt'], prompts['d2l_prompt'], descs, client, silent = args.silent == True)
-        descdicts = list2dict(prompts['l2d_sys_prompt'], prompts['l2d_prompt'], desclists, client, silent = args.silent == True)
+        desc_outs = desc2list2dict(prompts['d2l_sys_prompt'], prompts['d2l_prompt'],
+                                   prompts['l2d_sys_prompt'], prompts['l2d_prompt'],
+                                   descs, client, silent = args.silent == True)
 
         # Build output JSON
         outdict = [{
@@ -218,7 +217,7 @@ def main():
             'original_description': descdf.iloc[rowid]['description'],
             'char_list': dl,
             'char_json': dd
-        } for rowid, dl, dd in zip(list(range(0, len(descdicts))), desclists, descdicts)]
+        } for rowid, dl, dd in zip(list(range(0, len(desc_outs))), desc_outs['lists'], desc_outs['dicts'])]
 
     # Write output as JSON
     with open(args.outputfile, 'w') as outfile:
