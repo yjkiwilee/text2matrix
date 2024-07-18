@@ -48,19 +48,19 @@ def desc2charjson(sys_prompt, prompt, descs, client, model = 'desc2matrix', sile
 
         # Attempt to parse prompt as JSON
         try:
-            resp_json = json.loads(resp)
+            resp_json = json.loads(resp.replace("'", '"')) # Replace ' with "
             # Check validity / regularise output
             reg_resp_json = regularise_charjson(resp_json)
             if reg_resp_json != False:
-                char_jsons.append(reg_resp_json)
+                char_jsons.append({'status': 'success', 'data': reg_resp_json}) # Save parsed JSON with status
             else:
                 if not silent:
-                    print('Ollama output is JSON but is structured badly:\n{}'.format(str(resp_json)))
-                char_jsons.append(None) # Append None == null if not valid
+                    print('ollama output is JSON but is structured badly... ', end = '', flush = True)
+                char_jsons.append({'status': 'bad_structure', 'data': str(resp_json)}) # Save string with status
         except json.decoder.JSONDecodeError as decode_err: # If LLM returns bad string
             if not silent:
-                print('Ollama returned bad JSON string:\n{}'.format(resp))
-            char_jsons.append(None) # Append None == null
+                print('ollama returned bad JSON string... ', end = '', flush = True)
+            char_jsons.append({'status': 'invalid_json', 'data': resp}) # Save string with status
         
         if not silent:
             elapsed_t = time.time() - start
@@ -104,19 +104,19 @@ def desc2list2charjson(d2l_sys_prompt, d2l_prompt, l2j_sys_prompt, l2j_prompt, d
         
         # Attempt to parse response to JSON
         try:
-            resp_json = json.loads(resp)
+            resp_json = json.loads(resp.replace("'", '"')) # Replace ' with "
             # Check validity / regularise JSON
             reg_resp_json = regularise_charjson(resp_json)
             if reg_resp_json != False: # If JSON valid
-                char_jsons.append(reg_resp_json)
+                char_jsons.append({'status': 'success', 'data': reg_resp_json}) # Save parsed JSON with status
             else:
                 if not silent:
-                    print('Ollama output is JSON but is structured badly:\n{}'.format(str(resp_json)))
-                char_jsons.append(None) # Append None == null if not valid
+                    print('ollama output is JSON but is structured badly... ', end = '', flush = True)
+                char_jsons.append({'status': 'bad_structure', 'data': str(resp_json)}) # Save string with status
         except json.decoder.JSONDecodeError as decode_err: # If LLM returns bad string
             if not silent:
-                print('Ollama returned bad JSON string:\n{}'.format(resp_json))
-            char_jsons.append(None) # Append None == null
+                print('ollama returned bad JSON string... ', end = '', flush = True)
+            char_jsons.append({'status': 'invalid_json', 'data': resp}) # Save string with status
         
         if not silent:
             elapsed_t = time.time() - start
@@ -192,8 +192,10 @@ def main():
         # Build output JSON
         outdict = [{
             'coreid': descdf.iloc[rowid]['coreid'],
+            'status': cj['status'], # Status: one of 'success', 'bad_structure', 'invalid_json'
             'original_description': descdf.iloc[rowid]['description'],
-            'char_json': cj
+            'char_json': cj['data'] if cj['status'] == 'success' else None, # Only use this if parsing succeeded
+            'failed_str': cj['data'] if cj['status'] != 'success' else None # Only use this if parsing failed
         } for rowid, cj in enumerate(char_jsons)]
 
     elif(args.mode == 'desc2list2json'):
@@ -214,9 +216,11 @@ def main():
         # Build output JSON
         outdict = [{
             'coreid': descdf.iloc[rowid]['coreid'],
+            'status': cj['status'], # Status: one of 'success', 'bad_structure', 'invalid_json'
             'original_description': descdf.iloc[rowid]['description'],
             'char_list': cl,
-            'char_json': cj
+            'char_json': cj['data'] if cj['status'] == 'success' else None, # Only use this if parsing succeeded
+            'failed_str': cj['data'] if cj['status'] != 'success' else None # Only use this if parsing failed
         } for rowid, cl, cj in zip(list(range(0, len(desc_outs['jsons']))), desc_outs['lists'], desc_outs['jsons'])]
 
     # Write output as JSON
