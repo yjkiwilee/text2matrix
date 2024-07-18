@@ -5,22 +5,30 @@ import os
 import pandas as pd
 import time
 
-def is_dict_valid(dict):
+def regularise_dict(dict):
     # Return false if the object is not a list; we expect a list of {'characteristic':'', 'value':''}
     if not isinstance(dict, list):
         return False
+
+    new_dict = []
 
     # Go through elements
     for char in dict:
         # Return false if the keys are different from what we expect
         if set(char.keys()) != {'characteristic', 'value'}:
             return False
-        # Return false if the key values are not strings
-        if not (isinstance(char['characteristic'], str) and isinstance(char['value'], str)):
-            return False
+        
+        # Skip if value is None and similarly 'null-y' values
+        if char['value'] == None:
+            continue
+        if char['value'].lower() in ['unknown', 'null', 'not applicable']:
+            continue
+        
+        # Convert value to string
+        char['value'] = str(char['value'])
     
-    # Return true if the object passes all the checks
-    return True
+    # Return the new dict
+    return new_dict
 
 def desc2dict(sys_prompt, prompt, descriptions, client, model = 'desc2matrix', silent = False):
     # Pass descriptions to LLM for response
@@ -40,9 +48,10 @@ def desc2dict(sys_prompt, prompt, descriptions, client, model = 'desc2matrix', s
         # Attempt to parse prompt as JSON
         try:
             response_dict = json.loads(response)
-            # Check validity
-            if is_dict_valid(response_dict):
-                desc_dicts.append(response_dict)
+            # Check validity / regularise output
+            reg_response_dict = regularise_dict(response_dict)
+            if reg_response_dict != False:
+                desc_dicts.append(reg_response_dict)
             else:
                 if not silent:
                     print('Ollama output is JSON but is structured badly:\n{}'.format(str(response_dict)))
@@ -99,9 +108,10 @@ def list2dict(sys_prompt, prompt, liststrs, client, model = 'desc2matrix', silen
         # Attempt to parse response to dict
         try:
             resp_dict = json.loads(response)
-            # Check validity
-            if is_dict_valid(resp_dict):
-                desc_dicts.append(resp_dict)
+            # Check validity / regularise dict
+            reg_resp_dict = regularise_dict(resp_dict)
+            if reg_resp_dict != False:
+                desc_dicts.append(reg_resp_dict)
             else:
                 if not silent:
                     print('Ollama output is JSON but is structured badly:\n{}'.format(str(resp_dict)))
