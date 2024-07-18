@@ -63,13 +63,11 @@ def main():
     with open(args.inputfile, 'r') as fp:
         desc_output = json.loads(fp.read())
 
-    # Extract original descriptions and their JSON counterparts
+    # Extract original descriptions and their JSON counterparts OR LLM output that failed to parse
     descs = [desc['original_description'] for desc in desc_output]
-    descdicts = [desc['char_json'] for desc in desc_output]
-
-    # Merge characteristics in descdicts into single strings
-    descs_formatted = ['\n'.join(['{}: {}'.format(char['characteristic'], char['value']) for char in descdict])
-                    for descdict in descdicts]
+    descs_formatted = ['\n'.join(['{}: {}'.format(char['characteristic'], char['value']) for char in desc['char_json']]) if desc['status'] == 'success' # Convert JSON into a single string
+                       else desc['failed_str']
+                       for desc in desc_output]
 
     # Get word sets
     descsets = [get_word_set(desc) for desc in descs]
@@ -77,16 +75,17 @@ def main():
 
     # Dataframe to store the results
     df = pd.DataFrame(columns = [
-        'coreid',
-        'nwords_original',
-        'nwords_json',
-        'nwords_recovered',
-        'nwords_omitted',
-        'nwords_created',
-        'prop_recovered',
-        'common_words',
-        'original_only',
-        'json_only'
+        'coreid', # WFO taxon ID
+        'status', # Status of LLM transcription to JSON: "success", "bad_structure", or "invalid_json"
+        'nwords_original', # Number of words in the original text
+        'nwords_result', # Number of words in the result
+        'nwords_recovered', # Number of words in the original text AND the result
+        'nwords_omitted', # Number of words in the original text not in the result
+        'nwords_created', # Number of words in the result not in the original text
+        'prop_recovered', # Proportion of words in the original text recovered
+        'common_words', # Comma-separated list of words that the original and output text share
+        'original_only', # Comma-separated list of words only found in the original text
+        'result_only' # Comma-separated list of words only found in the output text
     ])
 
     # Go through each description
@@ -94,33 +93,34 @@ def main():
         # Calculate word match proportions
         common_words = sorted(descset.intersection(descset_f))
         original_only = sorted(descset.difference(descset_f))
-        json_only = sorted(descset_f.difference(descset))
+        result_only = sorted(descset_f.difference(descset))
         nwords_recovered = len(common_words)
         nwords_omitted = len(original_only)
-        nwords_created = len(json_only)
+        nwords_created = len(result_only)
         nwords_original = len(descset)
-        nwords_json = len(descset_f)
+        nwords_result = len(descset_f)
         prop_recovered = round(nwords_recovered / len(descset), 3)
 
         # Store data in dataframe
         df.loc[i] = [
             desc_dat['coreid'],
+            desc_dat['status'],
             nwords_original,
-            nwords_json,
+            nwords_result,
             nwords_recovered,
             nwords_omitted,
             nwords_created,
             prop_recovered,
             ','.join(common_words),
             ','.join(original_only),
-            ','.join(json_only)
+            ','.join(result_only)
         ]
 
         # Print output if --verbose
         if(args.verbose):
             print('Common words:\n{}\n'.format(', '.join(common_words)))
             print('Words only in the original description:\n{}\n'.format(', '.join(original_only)))
-            print('Words only in the JSON output:\n{}\n'.format(', '.join(json_only)))
+            print('Words only in the script output:\n{}\n'.format(', '.join(result_only)))
     
     # Write df to tsv
     df.to_csv(args.outfile, sep = '\t')
