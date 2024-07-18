@@ -3,12 +3,18 @@ import json
 from ollama import Client
 import os
 import pandas as pd
+import time
 
-def desc2dict(sys_prompt, prompt, descriptions, client, model = 'desc2matrix'):
+def desc2dict(sys_prompt, prompt, descriptions, client, model = 'desc2matrix', silent = False):
     # Pass descriptions to LLM for response
     desc_dicts = []
 
-    for description in descriptions:
+    for i, description in enumerate(descriptions):
+        start = 0
+        if not silent:
+            print('desc2dict: processing {}/{}... '.format(i+1, len(descriptions)), end = '')
+            start = time.time()
+
         # Generate response while specifying system prompt
         response = client.generate(model = model,
                                    prompt = prompt + '\n' + description,
@@ -21,29 +27,47 @@ def desc2dict(sys_prompt, prompt, descriptions, client, model = 'desc2matrix'):
         except json.decoder.JSONDecodeError as decode_err: # Throw error if LLM returns bad string
             print('Ollama returned bad JSON string:\n{}'.format(response))
             raise decode_err
+        
+        if not silent:
+            elapsed_t = time.time() - start
+            print(f'done in {elapsed_t:.2f} s!')
     
     # Return characteristics as array of dict
     return desc_dicts
 
-def desc2list(sys_prompt, prompt, descs, client, model = 'desc2matrix'):
+def desc2list(sys_prompt, prompt, descs, client, model = 'desc2matrix', silent = False):
     # List to store list strings
     liststrs = []
 
     # Pass descriptions to LLM for response
-    for desc in descs:
+    for i, desc in enumerate(descs):
+        start = 0
+        if not silent:
+            print('desc2list: processing {}/{}... '.format(i+1, len(descs)), end = '')
+            start = time.time()
+
         response = client.generate(model = model,
                                 prompt = prompt + '\n' + desc,
                                 system = sys_prompt)['response']
         liststrs.append(response)
+
+        if not silent:
+            elapsed_t = time.time() - start
+            print(f'done in {elapsed_t:.2f} s!')
     
     return liststrs
 
-def list2dict(sys_prompt, prompt, liststrs, client, model = 'desc2matrix'):
+def list2dict(sys_prompt, prompt, liststrs, client, model = 'desc2matrix', silent = False):
     # List to store dicts
     desc_dicts = []
 
     # Pass liststrs to LLM for response
-    for liststr in liststrs:
+    for i, liststr in enumerate(liststrs):
+        start = 0
+        if not silent:
+            print('list2dict: processing {}/{}... '.format(i+1, len(liststrs)), end = '')
+            start = time.time()
+        
         # Generate response
         response = client.generate(model = 'desc2matrix',
                             prompt = prompt + '\n' + liststr,
@@ -56,6 +80,10 @@ def list2dict(sys_prompt, prompt, liststrs, client, model = 'desc2matrix'):
             raise decode_err
         # Add to list
         desc_dicts.append(resp_dict)
+
+        if not silent:
+            elapsed_t = time.time() - start
+            print(f'done in {elapsed_t:.2f} s!')
 
     return desc_dicts
 
@@ -74,7 +102,7 @@ def main():
     parser.add_argument('--temperature', required = False, type = float, default = 0.1, help = 'Model temperature between 0 and 1')
     parser.add_argument('--seed', required = False, type = int, default = 0, help = 'Model seed value')
     parser.add_argument('--promptsdir', required = False, type = str, default = './prompts', help = 'Folder storing the prompt files')
-    
+    parser.add_argument('--silent', required = False, action = 'store_true', help = 'Suppress output showing job progress')
 
     # Parse the arguments
     args = parser.parse_args()
@@ -119,7 +147,7 @@ def main():
             with open(os.path.join(args.promptsdir, fname), 'r') as fp:
                 prompts[ftype] = fp.read()
 
-        descdict = desc2dict(prompts['sys_prompt'], prompts['prompt'], descs, client)
+        descdict = desc2dict(prompts['sys_prompt'], prompts['prompt'], descs, client, silent = args.silent == True)
 
     elif(args.mode == 'desc2list2dict'):
 
@@ -132,8 +160,8 @@ def main():
             with open(os.path.join(args.promptsdir, fname), 'r') as fp:
                 prompts[ftype] = fp.read()
         
-        desclists = desc2list(prompts['d2l_sys_prompt'], prompts['d2l_prompt'], descs, client)
-        descdict = list2dict(prompts['l2d_sys_prompt'], prompts['l2d_prompt'], desclists, client)
+        desclists = desc2list(prompts['d2l_sys_prompt'], prompts['d2l_prompt'], descs, client, silent = args.silent == True)
+        descdict = list2dict(prompts['l2d_sys_prompt'], prompts['l2d_prompt'], desclists, client, silent = args.silent == True)
     
     # Build output JSON
     outdict = [{
