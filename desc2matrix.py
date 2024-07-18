@@ -12,7 +12,7 @@ def desc2dict(sys_prompt, prompt, descriptions, client, model = 'desc2matrix', s
     for i, description in enumerate(descriptions):
         start = 0
         if not silent:
-            print('desc2dict: processing {}/{}... '.format(i+1, len(descriptions)), end = '')
+            print('desc2dict: processing {}/{}... '.format(i+1, len(descriptions)), end = '', flush = True)
             start = time.time()
 
         # Generate response while specifying system prompt
@@ -24,9 +24,10 @@ def desc2dict(sys_prompt, prompt, descriptions, client, model = 'desc2matrix', s
         try:
             response_dict = json.loads(response)
             desc_dicts.append(response_dict)
-        except json.decoder.JSONDecodeError as decode_err: # Throw error if LLM returns bad string
-            print('Ollama returned bad JSON string:\n{}'.format(response))
-            raise decode_err
+        except json.decoder.JSONDecodeError as decode_err: # If LLM returns bad string
+            if not silent:
+                print('Ollama returned bad JSON string:\n{}'.format(response))
+            desc_dicts.append(None) # Append None == null
         
         if not silent:
             elapsed_t = time.time() - start
@@ -43,7 +44,7 @@ def desc2list(sys_prompt, prompt, descs, client, model = 'desc2matrix', silent =
     for i, desc in enumerate(descs):
         start = 0
         if not silent:
-            print('desc2list: processing {}/{}... '.format(i+1, len(descs)), end = '')
+            print('desc2list: processing {}/{}... '.format(i+1, len(descs)), end = '', flush = True)
             start = time.time()
 
         response = client.generate(model = model,
@@ -65,7 +66,7 @@ def list2dict(sys_prompt, prompt, liststrs, client, model = 'desc2matrix', silen
     for i, liststr in enumerate(liststrs):
         start = 0
         if not silent:
-            print('list2dict: processing {}/{}... '.format(i+1, len(liststrs)), end = '')
+            print('list2dict: processing {}/{}... '.format(i+1, len(liststrs)), end = '', flush = True)
             start = time.time()
         
         # Generate response
@@ -75,12 +76,13 @@ def list2dict(sys_prompt, prompt, liststrs, client, model = 'desc2matrix', silen
         # Attempt to parse response to dict
         try:
             resp_dict = json.loads(response)
-        except json.decoder.JSONDecodeError as decode_err: # Throw error if LLM returns bad string
-            print('Ollama returned bad JSON string:\n{}'.format(response))
-            raise decode_err
-        # Add to list
-        desc_dicts.append(resp_dict)
-
+            # Add to list
+            desc_dicts.append(resp_dict)
+        except json.decoder.JSONDecodeError as decode_err: # If LLM returns bad string
+            if not silent:
+                print('Ollama returned bad JSON string:\n{}'.format(response))
+            desc_dicts.append(None) # Append None == null
+        
         if not silent:
             elapsed_t = time.time() - start
             print(f'done in {elapsed_t:.2f} s!')
