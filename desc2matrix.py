@@ -5,6 +5,23 @@ import os
 import pandas as pd
 import time
 
+def is_dict_valid(dict):
+    # Return false if the object is not a list; we expect a list of {'characteristic':'', 'value':''}
+    if not isinstance(dict, list):
+        return False
+
+    # Go through elements
+    for char in dict:
+        # Return false if the keys are different from what we expect
+        if set(char.keys()) != {'characteristic', 'value'}:
+            return False
+        # Return false if the key values are not strings
+        if not (isinstance(char['characteristic'], str) and isinstance(char['value'], str)):
+            return False
+    
+    # Return true if the object passes all the checks
+    return True
+
 def desc2dict(sys_prompt, prompt, descriptions, client, model = 'desc2matrix', silent = False):
     # Pass descriptions to LLM for response
     desc_dicts = []
@@ -23,7 +40,13 @@ def desc2dict(sys_prompt, prompt, descriptions, client, model = 'desc2matrix', s
         # Attempt to parse prompt as JSON
         try:
             response_dict = json.loads(response)
-            desc_dicts.append(response_dict)
+            # Check validity
+            if is_dict_valid(response_dict):
+                desc_dicts.append(response_dict)
+            else:
+                if not silent:
+                    print('Ollama output is JSON but is structured badly:\n{}'.format(str(response_dict)))
+                desc_dicts.append(None) # Append None == null if not valid
         except json.decoder.JSONDecodeError as decode_err: # If LLM returns bad string
             if not silent:
                 print('Ollama returned bad JSON string:\n{}'.format(response))
@@ -76,8 +99,13 @@ def list2dict(sys_prompt, prompt, liststrs, client, model = 'desc2matrix', silen
         # Attempt to parse response to dict
         try:
             resp_dict = json.loads(response)
-            # Add to list
-            desc_dicts.append(resp_dict)
+            # Check validity
+            if is_dict_valid(resp_dict):
+                desc_dicts.append(resp_dict)
+            else:
+                if not silent:
+                    print('Ollama output is JSON but is structured badly:\n{}'.format(str(resp_dict)))
+                desc_dicts.append(None) # Append None == null if not valid
         except json.decoder.JSONDecodeError as decode_err: # If LLM returns bad string
             if not silent:
                 print('Ollama returned bad JSON string:\n{}'.format(response))
