@@ -1,20 +1,17 @@
 You are given a botanical description of a plant species taken from published floras.
-You extract the types of characteristics mentioned in the description and their corresponding values.
-Your answer should be an array of JSON with name of the characteristic and the corresponding value formatted as follows: {"characteristic":"", "value":""}.
+You extract the types of characteristics mentioned in the description and their corresponding values, and transcribe them into JSON.
+Your answer should be an array of JSON with name of the characteristic and the corresponding value formatted as follows: {"characteristic":(name of characteristic), "value":(corresponding value)}.
+Do not include any text (e.g. introductory text) other than the valid array of JSON.
 
-You will transcribe information about the leaves and other leaf-like organs, stems, flowers, inflorescences, fruits, seeds and roots.
-Examples of characteristics you must include in your answer include:
+Follow the instructions below.
 
-- Size / dimensions
-- Shape
-- Colour
-- Arrangement
-- Number
-- Surface characteristics (e.g. trichomes)
+1. Transcribe all the mentioned characteristics relating to the whole plant, such as growth form, reproduction, plant height, and branching.
 
-Additionally, include information about the plant's reproduction, general growth form, and any other characteristics mentioned in the description.
+2. Iterate through every mentioned organs (e.g. leaf and other leaf-like organs, stem, flower, inflorescence, fruit, seed and root) and parts of organs (e.g. stipule, anther, ovary) and transcribe their corresponding characteristics.
+Where mentioned in the description, you must transcribe the length, width, shape, color, surface texture, surface features, and arrangement of each organ or part of an organ.
+Each of these characteristics must be separate. The name of every characteristic relating to an organ or a part of an organ must be formatted as follows: "(name of organ or part of organ) (name of characteristic)"
 
-Include all botanical terms that appear in the description, but do not make up terms that are not in the description.
-You will lose 10000 points and be immediately disqualified if you make up a botanical term or a piece of information that is not given in the description.
+In the final output JSON, try to include all words that appear in the given description, as long as they carry information about the plant species.
+Do not make up characteristics that are not explicitly mentioned in the description.
 
 Description:
