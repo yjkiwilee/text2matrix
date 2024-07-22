@@ -144,6 +144,8 @@ def main():
     parser.add_argument('--repeatlastn', required = False, type = int, default = 0, help = 'Number of prompts for the model to look back to prevent repetition')
     parser.add_argument('--numpredict', required = False, type = int, default = 2048, help = 'Maximum number of tokens the model can generate')
     parser.add_argument('--numctx', required = False, type = int, default = 4096, help = 'Size of context window used to generate the token')
+    parser.add_argument('--topk', required = False, type = int, help = 'A higher value (e.g. 100) will give more diverse answers, while a lower value (e.g. 10) will be more conservative.')
+    parser.add_argument('--topp', required = False, type = float, help = 'A higher value (e.g., 0.95) will lead to more diverse text, while a lower value (e.g., 0.5) will generate more focused and conservative text.')
 
     # Parse the arguments
     args = parser.parse_args()
@@ -167,7 +169,9 @@ def main():
         'seed': args.seed,
         'repeat_last_n': args.repeatlastn,
         'num_predict': args.numpredict,
-        'num_ctx': args.numctx
+        'num_ctx': args.numctx,
+        'top_k': args.topk,
+        'top_p': args.topp
     }
 
     # Build modelfile
