@@ -142,7 +142,8 @@ def main():
     parser.add_argument('--promptsdir', required = False, type = str, default = './prompts', help = 'Folder storing the prompt files')
     parser.add_argument('--silent', required = False, action = 'store_true', help = 'Suppress output showing job progress')
     parser.add_argument('--repeatlastn', required = False, type = int, default = 0, help = 'Number of prompts for the model to look back to prevent repetition')
-    parser.add_argument('--numpredict', required = False, type = int, default = -1, help = 'Maximum number of tokens the model can generate')
+    parser.add_argument('--numpredict', required = False, type = int, default = 2048, help = 'Maximum number of tokens the model can generate')
+    parser.add_argument('--numctx', required = False, type = int, default = 4096, help = 'Size of context window used to generate the token')
 
     # Parse the arguments
     args = parser.parse_args()
@@ -165,7 +166,8 @@ def main():
         'temperature': args.temperature,
         'seed': args.seed,
         'repeat_last_n': args.repeatlastn,
-        'num_predict': args.numpredict
+        'num_predict': args.numpredict,
+        'num_ctx': args.numctx
     }
 
     # Build modelfile
