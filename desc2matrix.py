@@ -173,7 +173,7 @@ def main():
     # Build modelfile
     modelfile = '{}\n{}'.format(
         'FROM {}'.format(args.model),
-        '\n'.join(['PARAMETER {} {}'.format(param, value) for param, value in params.items()])
+        '\n'.join(['PARAMETER {} {}'.format(param, value) for param, value in params.items() if value != None])
     )
 
     # Make connection to client
