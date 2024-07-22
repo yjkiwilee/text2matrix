@@ -58,10 +58,11 @@ def main():
     args = parser.parse_args()
 
     # Read output from desc2matrix.py
-    desc_output = {}
-
     with open(args.inputfile, 'r') as fp:
-        desc_output = json.loads(fp.read())
+        raw_output = json.loads(fp.read())
+    
+    # Extract only the data without the metadata
+    desc_output = raw_output['data']
 
     # Extract original descriptions and their JSON counterparts OR LLM output that failed to parse
     descs = [desc['original_description'] for desc in desc_output]
