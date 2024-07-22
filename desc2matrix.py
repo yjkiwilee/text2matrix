@@ -189,14 +189,20 @@ def main():
 
         char_jsons = desc2charjson(prompts['sys_prompt'], prompts['prompt'], descs, client, silent = args.silent == True)
 
-        # Build output JSON
-        outdict = [{
+        # Compile transcribed species data
+        sp_list = [{
             'coreid': descdf.iloc[rowid]['coreid'],
             'status': cj['status'], # Status: one of 'success', 'bad_structure', 'invalid_json'
             'original_description': descdf.iloc[rowid]['description'],
             'char_json': cj['data'] if cj['status'] == 'success' else None, # Only use this if parsing succeeded
             'failed_str': cj['data'] if cj['status'] != 'success' else None # Only use this if parsing failed
         } for rowid, cj in enumerate(char_jsons)]
+
+        # Include metadata about the prompts provided, mode, and the parameters
+        outdict = {prompt_type: prompts[prompt_type] for prompt_type in prompt_ftypes}
+        outdict['params'] = params
+        outdict['mode'] = args.mode
+        outdict['data'] = sp_list
 
     elif(args.mode == 'desc2list2json'):
 
@@ -214,7 +220,7 @@ def main():
                                    descs, client, silent = args.silent == True)
 
         # Build output JSON
-        outdict = [{
+        sp_list = [{
             'coreid': descdf.iloc[rowid]['coreid'],
             'status': cj['status'], # Status: one of 'success', 'bad_structure', 'invalid_json'
             'original_description': descdf.iloc[rowid]['description'],
@@ -222,6 +228,12 @@ def main():
             'char_json': cj['data'] if cj['status'] == 'success' else None, # Only use this if parsing succeeded
             'failed_str': cj['data'] if cj['status'] != 'success' else None # Only use this if parsing failed
         } for rowid, cl, cj in zip(list(range(0, len(desc_outs['jsons']))), desc_outs['lists'], desc_outs['jsons'])]
+
+        # Include metadata about the prompts provided, mode, and the parameters
+        outdict = {prompt_type: prompts[prompt_type] for prompt_type in prompt_ftypes}
+        outdict['params'] = params
+        outdict['mode'] = args.mode
+        outdict['data'] = sp_list
 
     # Write output as JSON
     with open(args.outputfile, 'w') as outfile:
