@@ -138,7 +138,7 @@ def main():
     parser.add_argument('--spnum', required = False, type = int, help = 'Number of species to process descriptions of. Default behaviour is to process all species present in the file')
     parser.add_argument('--model', required = False, type = str, default = 'llama3', help = 'Name of base LLM to use')
     parser.add_argument('--temperature', required = False, type = float, default = 0.1, help = 'Model temperature between 0 and 1')
-    parser.add_argument('--seed', required = False, type = int, default = 0, help = 'Model seed value')
+    parser.add_argument('--seed', required = False, type = int, default = 1, help = 'Model seed value')
     parser.add_argument('--promptsdir', required = False, type = str, default = './prompts', help = 'Folder storing the prompt files')
     parser.add_argument('--silent', required = False, action = 'store_true', help = 'Suppress output showing job progress')
     parser.add_argument('--repeatlastn', required = False, type = int, default = 0, help = 'Number of prompts for the model to look back to prevent repetition')
