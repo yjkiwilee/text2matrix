@@ -1,9 +1,16 @@
 import argparse
 import json
 from ollama import Client
-import os
+import nltk
 import pandas as pd
 import time
+import re
+import inflect as inf
+
+nltk.download('punkt')
+nltk.download('stopwords')
+nltk.download('averaged_perceptron_tagger')
+from nltk.corpus import stopwords
 
 # ===== Default prompts =====
 
@@ -48,6 +55,18 @@ Here is the description that you should transcribe:
 [DESCRIPTION]
 """
 
+# [DESCRIPTION] and [MISSING_WORDS] are each replaced by the plant description and the list of missing words.
+global_followup_prompt = """
+Here are the words in the original description that you've omitted in your JSON response:
+[MISSING_WORDS]
+
+Some of these are broken parts of words that you have included in your final response. For example, the list might have the word '
+
+Here is the description that you should transcribe:
+
+[DESCRIPTION]
+"""
+
 # ===== Functions =====
 
 # Check JSON output for structural validity and do some cleanup
@@ -76,6 +95,53 @@ def regularise_charjson(chars):
     
     # Return the new dict
     return new_dict
+
+# Get the set of words given a string (taken from desc2matrix_qc.py)
+def get_word_set(descstr):
+    # Gather stop words
+    stop_words = set(stopwords.words('english'))
+
+    # Insert whitespace before/after period, comma, colon, semicolon and brackets
+    descstr = re.sub(r'[^0-9] *\. *[^0-9]', '. ', descstr) # Do not substitute periods in floating-point numbers
+    descstr = re.sub(r' *, *', ', ', descstr)
+    descstr = re.sub(r' *: *', ': ', descstr)
+    descstr = re.sub(r' *; *', '; ', descstr)
+    descstr = re.sub(r' *\( *', ' (', descstr)
+    descstr = re.sub(r' *\) *', ') ', descstr)
+
+    # Collapse numeric ranges to single 'word' to check for presence
+    descstr = re.sub(r'([0-9]) *- * ([0-9])', r'\1-\2', descstr)
+
+    # Tokenise words, remove stop words, convert to lowercase
+    descset = set([w.lower() for w in nltk.word_tokenize(descstr) if not w.lower() in stop_words])
+
+    # Remove punctuations & brackets
+    descset = descset.difference({'.', ',', ':', ';', '“', '”', '"', "'", "(", ")"})
+
+    # Singularise nouns (duplicates will automatically be merged since this is a set)
+    descset_n = set([w for w in descset
+                     if nltk.pos_tag([w])[0][1] in ['NN', 'NNS', 'NNPS', 'NNP']])
+    descset_sing_n = set([w if inf.singular_noun(w) == False else inf.singular_noun(w) # inflection may determine that the word is not a noun, in which case use the original word
+                          for w in descset_n])
+    descset = descset.difference(descset_n).union(descset_sing_n) # Remove nouns and add back singulars
+
+    # Return word set
+    return descset
+
+# Identify omitted words in char_json given the original description
+def get_omissions(desc, char_json):
+    # Compile names of characteristics and their corresponding values to a single string
+    compiled_charstr = '\n'.join(['{}: {}'.format(char['characteristic'], char['value']) for char in char_json])
+
+    # Feed string into get_word_set to get the set of words
+    out_words = get_word_set(compiled_charstr)
+    # Feed the original description into get_word_set to get the set of words
+    desc_words = get_word_set(desc)
+
+    # Determine omitted words
+    omissions = desc_words.difference(out_words)
+
+    # Return set
 
 # Convert a list of descriptions to a list of JSON
 def desc2charjson(sys_prompt, prompt, descs, client, model = 'desc2matrix', silent = False):

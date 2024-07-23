@@ -1,2 +1,7 @@
 pandas
 python-dwca-reader
+ollama
+nltk
+argparse
+pandas
+inflect
