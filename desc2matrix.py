@@ -5,8 +5,14 @@ import os
 import pandas as pd
 import time
 
-prompts = {} # Dictionary to store prompts
+# ===== Default prompts =====
 
+sys_prompt = ""
+prompt = ""
+
+# ===== Functions =====
+
+# Check JSON output for structural validity and do some cleanup
 def regularise_charjson(chars):
     # Return false if the object is not a list; we expect a list of {'characteristic':'', 'value':''}
     if not isinstance(chars, list):
@@ -33,6 +39,7 @@ def regularise_charjson(chars):
     # Return the new dict
     return new_dict
 
+# Convert a list of descriptions to a list of JSON
 def desc2charjson(sys_prompt, prompt, descs, client, model = 'desc2matrix', silent = False):
     # Pass descriptions to LLM for response
     char_jsons = []
@@ -71,6 +78,7 @@ def desc2charjson(sys_prompt, prompt, descs, client, model = 'desc2matrix', sile
     # Return characteristics as array of dict
     return char_jsons
 
+# Convert a single description to a JSON
 def desc2charjson_single(sys_prompt, prompt, desc, client, model = 'desc2matrix', silent = False):
     # Pass descriptions to LLM for response
     char_json = {}
@@ -116,7 +124,8 @@ def main():
     parser.add_argument('descfile', type = str, help = 'File containing the descriptions produced by dwca2csv.py')
     parser.add_argument('outputfile', type = str, help = 'File to write JSON to')
     parser.add_argument('--desctype', required = True, type = str, help = 'The "type" value used for morphological descriptions in the description file')
-    parser.add_argument('--promptsdir', required = False, type = str, default = './prompts', help = 'Folder storing the prompt files')
+    parser.add_argument('--sysprompt', required = False, type = str, default = './prompts/prompt.txt', help = 'Text file storing the system prompt')
+    parser.add_argument('--prompt', required = False, type = str, default = './prompts/prompt.txt', help = 'Text file storing the prompt')
     parser.add_argument('--silent', required = False, action = 'store_true', help = 'Suppress output showing job progress')
 
     # Run configs
@@ -139,15 +148,14 @@ def main():
 
     # ===== Prompt setup =====
 
-    # Identify appropriate prompt files
-    # prompt = {} in global scope
-    prompt_fnames = ['sys_prompt.txt', 'prompt.txt'] # List to store the expected prompt file names depending on the mode
-    prompt_ftypes = ['sys_prompt', 'prompt'] # List to store the expected prompt names depending on the mode
-
-    # Read prompt files
-    for fname, ftype in zip(prompt_fnames, prompt_ftypes):
-        with open(os.path.join(args.promptsdir, fname), 'r') as fp:
-            prompts[ftype] = fp.read()
+    # Load prompt files if needed
+    # sys_prompt and prompt in global scope
+    if(args.sysprompt != None):
+        with open(args.sysprompt, 'r') as fp:
+            sys_prompt = fp.read()
+    if(args.prompt != None):
+        with open(args.prompt, 'r') as fp:
+            prompt = fp.read()
 
     # ===== Read descfile =====
 
@@ -191,14 +199,14 @@ def main():
 
     # ===== Generate output =====
 
-    # Dictionary to store the final output
-    outdict = None
-
-    # Store metadata about the prompts provided, mode, and the parameters
-    outdict = {prompt_type: prompts[prompt_type] for prompt_type in prompt_ftypes}
-    outdict['params'] = params
-    outdict['mode'] = 'desc2json' # Specify mode in metadata
-    outdict['data'] = []
+    # Dictionary to store the final output along with metadata
+    outdict = {
+        'sys_prompt': sys_prompt,
+        'prompt': prompt,
+        'params': params,
+        'mode': 'desc2json',
+        'data': []
+    }
 
     # If running in 'saveeachsp' mode
     if(args.saveeachsp == True):
@@ -212,7 +220,7 @@ def main():
                 print('Processing {}/{}'.format(rowid + 1, len(descs)))
 
             # Generate output for one species
-            char_json = desc2charjson_single(prompts['sys_prompt'], prompts['prompt'], desc, client, silent = args.silent == True)
+            char_json = desc2charjson_single(sys_prompt, prompt, desc, client, silent = args.silent == True)
 
             # Add entry to sp_list
             sp_list.append({
@@ -233,7 +241,7 @@ def main():
     # If running in bulk mode (default, save to file after all species have been processed)
     else:
         # Generate output
-        char_jsons = desc2charjson(prompts['sys_prompt'], prompts['prompt'], descs, client, silent = args.silent == True)
+        char_jsons = desc2charjson(sys_prompt, prompt, descs, client, silent = args.silent == True)
 
         # Compile data
         sp_list = [{
