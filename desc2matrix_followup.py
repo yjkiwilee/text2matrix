@@ -5,12 +5,16 @@ import nltk
 import pandas as pd
 import time
 import re
-import inflect as inf
+import inflect
 
 nltk.download('punkt')
 nltk.download('stopwords')
 nltk.download('averaged_perceptron_tagger')
 from nltk.corpus import stopwords
+
+inf = inflect.engine()
+# Turn on 'classical' plurals as they are likely to occur in the dataset
+inf.classical()
 
 # ===== Default prompts =====
 
@@ -57,13 +61,17 @@ Here is the description that you should transcribe:
 
 # [DESCRIPTION] and [MISSING_WORDS] are each replaced by the plant description and the list of missing words.
 global_followup_prompt = """
+Please generate a new, more complete JSON response in the same format as before.
+
 Here are the words in the original description that you've omitted in your JSON response:
 [MISSING_WORDS]
 
-Some of these are broken parts of words that you have included in your final response. For example, the list might have the word '
+Some of these are broken parts of words that you have included in your final response. For example, the list might have the word 'seudostipule' when you have 'pseudostipule' in your JSON. Ignore such cases.
+Of the words in the above list, try to include all words that contain information about a plant trait that you have genuinely omitted.
 
-Here is the description that you should transcribe:
+Do not include any text (e.g. introductory text) other than the valid array of JSON.
 
+Here is the original description that you should transcribe:
 [DESCRIPTION]
 """
 
@@ -225,10 +233,67 @@ def desc2charjson_single(sys_prompt, prompt, desc, client, model = 'desc2matrix'
 
 # 'Follow-up' version of desc2charjson where an additional prompt (f_prompt) is given to ensure missing words are included
 def desc2charjson_followup(sys_prompt, prompt, f_prompt, descs, client, model = 'desc2matrix', silent = False):
-    
+    # Variable to write final char_jsons to
+    char_jsons = []
+
+    # Generate initial response using desc2charjson
+    init_char_jsons = desc2charjson(sys_prompt, prompt, descs, client, model, silent)
+
+    # Iterate through char_jsons to ask follow-up questions
+    for i, (char_json_raw, desc) in enumerate(zip(init_char_jsons, descs)):
+        # Skip if JSON output was invalid or badly structured
+        if(char_json_raw['status'] != 'success'):
+            # Simply append to char_json without follow-up processing
+            char_jsons.append(char_json_raw)
+            continue
+
+        # Extract the char_json itself
+        char_json = char_json_raw['data']
+        start = 0
+        # Progress log
+        if not silent:
+            print('desc2json_followup: processing {}/{}... '.format(i+1, len(descs)), end = '', flush = True)
+            start = time.time()
+        
+        # Retrieve omissions
+        omissions = get_omissions(desc, char_json)
+
+        # Build the follow-up prompt
+        followup_prompt = f_prompt.replace('[DESCRIPTION]', desc).replace('[MISSING_WORDS]', ', '.join(sorted(omissions)))
+
+        # Generate response using the follow-up prompt
+        followup_resp = client.chat(model = model, stream = False, messages = [
+            {'role': 'system', 'content': sys_prompt}, 
+            {'role': 'user', 'content': prompt.replace('[DESCRIPTION]', desc)},
+            {'role': 'assistant', 'content': json.dumps(char_json, indent=4)},
+            {'role': 'user', 'content': followup_prompt}
+        ])['message']['content']
+
+        # Attempt to parse prompt as JSON
+        try:
+            resp_json = json.loads(followup_resp.replace("'", '"')) # Replace ' with "
+            # Check validity / regularise output
+            reg_resp_json = regularise_charjson(resp_json)
+            if reg_resp_json != False:
+                char_jsons.append({'status': 'success', 'data': reg_resp_json}) # Save parsed JSON with status
+            else:
+                if not silent:
+                    print('ollama output is JSON but is structured badly... ', end = '', flush = True)
+                char_jsons.append({'status': 'bad_structure_followup', 'data': str(resp_json)}) # Save string with status; 'followup' to distinguish it from failure in the first run
+        except json.decoder.JSONDecodeError as decode_err: # If LLM returns bad string
+            if not silent:
+                print('ollama returned bad JSON string... ', end = '', flush = True)
+            char_jsons.append({'status': 'invalid_json_followup', 'data': followup_resp}) # Save string with status
+
+        if not silent:
+            elapsed_t = time.time() - start
+            print(f'done in {elapsed_t:.2f} s!')
+
+    # Return charjsons as an array of dict
+    return char_jsons
 
 
-def main(sys_prompt, prompt):
+def main(sys_prompt, prompt, f_prompt):
     # Create the parser
     parser = argparse.ArgumentParser(description = 'Extract JSON/dict from description files')
 
@@ -238,6 +303,7 @@ def main(sys_prompt, prompt):
     parser.add_argument('--desctype', required = True, type = str, help = 'The "type" value used for morphological descriptions in the description file')
     parser.add_argument('--sysprompt', required = False, type = str, help = 'Text file storing the system prompt')
     parser.add_argument('--prompt', required = False, type = str, help = 'Text file storing the prompt')
+    parser.add_argument('--fprompt', required = False, type = str, help = 'Text file storing the follow-up prompt')
     parser.add_argument('--silent', required = False, action = 'store_true', help = 'Suppress output showing job progress')
 
     # Run configs
@@ -251,7 +317,7 @@ def main(sys_prompt, prompt):
     parser.add_argument('--seed', required = False, type = int, default = 1, help = 'Model seed value')
     parser.add_argument('--repeatlastn', required = False, type = int, default = 0, help = 'Number of prompts for the model to look back to prevent repetition')
     parser.add_argument('--numpredict', required = False, type = int, default = 2048, help = 'Maximum number of tokens the model can generate')
-    parser.add_argument('--numctx', required = False, type = int, default = 4096, help = 'Size of context window used to generate the token')
+    parser.add_argument('--numctx', required = False, type = int, default = 16384, help = 'Size of context window used to generate the token')
     parser.add_argument('--topk', required = False, type = int, help = 'A higher value (e.g. 100) will give more diverse answers, while a lower value (e.g. 10) will be more conservative.')
     parser.add_argument('--topp', required = False, type = float, help = 'A higher value (e.g., 0.95) will lead to more diverse text, while a lower value (e.g., 0.5) will generate more focused and conservative text.')
 
@@ -267,6 +333,9 @@ def main(sys_prompt, prompt):
     if(args.prompt != None):
         with open(args.prompt, 'r') as fp:
             prompt = fp.read()
+    if(args.fprompt != None):
+        with open(args.fprompt, 'r') as fp:
+            f_prompt = fp.read()
 
     # ===== Read descfile =====
 
@@ -314,8 +383,9 @@ def main(sys_prompt, prompt):
     outdict = {
         'sys_prompt': sys_prompt,
         'prompt': prompt,
+        'f_prompt': f_prompt,
         'params': params,
-        'mode': 'desc2json',
+        'mode': 'desc2json_followup',
         'data': []
     }
 
@@ -331,7 +401,7 @@ def main(sys_prompt, prompt):
                 print('Processing {}/{}'.format(rowid + 1, len(descs)))
 
             # Generate output for one species
-            char_json = desc2charjson_single(sys_prompt, prompt, desc, client, silent = args.silent == True)
+            char_json = desc2charjson_single(sys_prompt, prompt, f_prompt, desc, client, silent = args.silent == True)
 
             # Add entry to sp_list
             sp_list.append({
@@ -352,7 +422,7 @@ def main(sys_prompt, prompt):
     # If running in bulk mode (default, save to file after all species have been processed)
     else:
         # Generate output
-        char_jsons = desc2charjson(sys_prompt, prompt, descs, client, silent = args.silent == True)
+        char_jsons = desc2charjson_followup(sys_prompt, prompt, f_prompt, descs, client, silent = args.silent == True)
 
         # Compile data
         sp_list = [{
@@ -371,4 +441,4 @@ def main(sys_prompt, prompt):
             json.dump(outdict, outfile)
 
 if __name__ == '__main__':
-    main(global_sys_prompt, global_prompt)
+    main(global_sys_prompt, global_prompt, global_followup_prompt)
