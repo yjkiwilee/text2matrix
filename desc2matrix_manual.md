@@ -4,7 +4,7 @@ This document explains the up-to-date manual for using `desc2matrix.py`, which c
 
 ## Default prompts
 
-Edit `desc2matrix.py` to change the default prompts.
+Edit `desc2matrix.py` to change the default prompts. In the prompt string, either hard-coded in the script or imported from a text file, `[DESCRIPTION]` is used to mark the position where the description of the plant should go in.
 
 **System prompt**:
 
@@ -47,6 +47,7 @@ JSON: {"characteristic": "life history", "value": "perennial"}, {"characteristic
 
 Here is the description that you should transcribe:
 
+[DESCRIPTION]
 </pre>
 
 ## Arguments

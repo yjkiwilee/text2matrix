@@ -14,6 +14,7 @@ Your answer must be as complete and accurate as possible.
 You must answer in valid JSON, with no other text.
 """
 
+# [DESCRIPTION] in the prompt text is replaced by the plant description.
 global_prompt = """
 You are given a botanical description of a plant species taken from published floras.
 You extract the types of characteristics mentioned in the description and their corresponding values, and transcribe them into JSON.
@@ -44,6 +45,7 @@ JSON: {"characteristic": "life history", "value": "perennial"}, {"characteristic
 
 Here is the description that you should transcribe:
 
+[DESCRIPTION]
 """
 
 # ===== Functions =====
@@ -88,7 +90,7 @@ def desc2charjson(sys_prompt, prompt, descs, client, model = 'desc2matrix', sile
 
         # Generate response while specifying system prompt
         resp = client.generate(model = model,
-                                   prompt = prompt + '\n' + desc,
+                                   prompt = prompt.replace('[DESCRIPTION]', desc),
                                    system = sys_prompt)['response']
 
         # Attempt to parse prompt as JSON
@@ -126,7 +128,7 @@ def desc2charjson_single(sys_prompt, prompt, desc, client, model = 'desc2matrix'
 
     # Generate response while specifying system prompt
     resp = client.generate(model = model,
-                                prompt = prompt + '\n' + desc,
+                                prompt = prompt.replace('[DESCRIPTION]', desc),
                                 system = sys_prompt)['response']
 
     # Attempt to parse prompt as JSON
