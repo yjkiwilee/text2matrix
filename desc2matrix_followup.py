@@ -292,6 +292,65 @@ def desc2charjson_followup(sys_prompt, prompt, f_prompt, descs, client, model = 
     # Return charjsons as an array of dict
     return char_jsons
 
+# 'Follow-up' version of desc2charjson_s where an additional prompt (f_prompt) is given to ensure missing words are included
+def desc2charjson_s_followup(sys_prompt, prompt, f_prompt, desc, client, model = 'desc2matrix', silent = False):
+    # Variable to store the final char_json
+    char_json = {}
+
+    # Get initial response using desc2charjson_single()
+    init_raw_char_json = desc2charjson_single(sys_prompt, prompt, desc, client, model, silent)
+
+    # Skip if JSON output was invalid or badly structured
+    if(init_raw_char_json['status'] != 'success'):
+        # Simply return without follow-up processing
+        return init_raw_char_json
+
+    # Extract the char_json itself
+    init_char_json = init_raw_char_json['data']
+
+    start = 0
+    # Progress log
+    if not silent:
+        print('desc2json_followup: processing... ', end = '', flush = True)
+        start = time.time()
+    
+    # Retrieve omissions
+    omissions = get_omissions(desc, init_char_json)
+
+    # Build the follow-up prompt
+    followup_prompt = f_prompt.replace('[DESCRIPTION]', desc).replace('[MISSING_WORDS]', ', '.join(sorted(omissions)))
+
+    # Generate response using the follow-up prompt
+    followup_resp = client.chat(model = model, stream = False, messages = [
+        {'role': 'system', 'content': sys_prompt}, 
+        {'role': 'user', 'content': prompt.replace('[DESCRIPTION]', desc)},
+        {'role': 'assistant', 'content': json.dumps(init_char_json, indent=4)},
+        {'role': 'user', 'content': followup_prompt}
+    ])['message']['content']
+
+    # Attempt to parse prompt as JSON
+    try:
+        resp_json = json.loads(followup_resp.replace("'", '"')) # Replace ' with "
+        # Check validity / regularise output
+        reg_resp_json = regularise_charjson(resp_json)
+        if reg_resp_json != False:
+            char_json = {'status': 'success', 'data': reg_resp_json} # Save parsed JSON with status
+        else:
+            if not silent:
+                print('ollama output is JSON but is structured badly... ', end = '', flush = True)
+            char_json = {'status': 'bad_structure_followup', 'data': str(resp_json)} # Save string with status; 'followup' to distinguish it from failure in the first run
+    except json.decoder.JSONDecodeError as decode_err: # If LLM returns bad string
+        if not silent:
+            print('ollama returned bad JSON string... ', end = '', flush = True)
+        char_json = {'status': 'invalid_json_followup', 'data': followup_resp} # Save string with status
+
+    # Progress log
+    if not silent:
+        elapsed_t = time.time() - start
+        print(f'done in {elapsed_t:.2f} s!')
+
+    # Return characteristics as an array of dict
+    return char_json
 
 def main(sys_prompt, prompt, f_prompt):
     # Create the parser
@@ -401,12 +460,12 @@ def main(sys_prompt, prompt, f_prompt):
                 print('Processing {}/{}'.format(rowid + 1, len(descs)))
 
             # Generate output for one species
-            char_json = desc2charjson_single(sys_prompt, prompt, f_prompt, desc, client, silent = args.silent == True)
+            char_json = desc2charjson_s_followup(sys_prompt, prompt, f_prompt, desc, client, silent = args.silent == True)
 
             # Add entry to sp_list
             sp_list.append({
                 'coreid': descdf.iloc[rowid]['coreid'],
-                'status': char_json['status'], # Status: one of 'success', 'bad_structure', 'invalid_json'
+                'status': char_json['status'], # Status: one of 'success', 'bad_structure', 'bad_structure_followup', 'invalid_json', 'invalid_json_followup'
                 'original_description': descdf.iloc[rowid]['description'],
                 'char_json': char_json['data'] if char_json['status'] == 'success' else None, # Only use this if parsing succeeded
                 'failed_str': char_json['data'] if char_json['status'] != 'success' else None # Only use this if parsing failed
@@ -427,7 +486,7 @@ def main(sys_prompt, prompt, f_prompt):
         # Compile data
         sp_list = [{
             'coreid': descdf.iloc[rowid]['coreid'],
-            'status': cj['status'], # Status: one of 'success', 'bad_structure', 'invalid_json'
+            'status': cj['status'], # Status: one of 'success', 'bad_structure', 'bad_structure_followup', 'invalid_json', 'invalid_json_followup'
             'original_description': descdf.iloc[rowid]['description'],
             'char_json': cj['data'] if cj['status'] == 'success' else None, # Only use this if parsing succeeded
             'failed_str': cj['data'] if cj['status'] != 'success' else None # Only use this if parsing failed
