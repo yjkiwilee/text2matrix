@@ -103,6 +103,8 @@ def get_word_set(descstr):
 
     # Insert whitespace before/after period, comma, colon, semicolon and brackets
     descstr = re.sub(r'[^0-9] *\. *[^0-9]', '. ', descstr) # Do not substitute periods in floating-point numbers
+    descstr = re.sub(r'[^0-9] *\. *[0-9]', '. ', descstr) # Substitute periods next to numbers if either side is not a number
+    descstr = re.sub(r'[0-9] *\. *[^0-9]', '. ', descstr)
     descstr = re.sub(r' *, *', ', ', descstr)
     descstr = re.sub(r' *: *', ': ', descstr)
     descstr = re.sub(r' *; *', '; ', descstr)
@@ -110,7 +112,7 @@ def get_word_set(descstr):
     descstr = re.sub(r' *\) *', ') ', descstr)
 
     # Collapse numeric ranges to single 'word' to check for presence
-    descstr = re.sub(r'([0-9]) *- * ([0-9])', r'\1-\2', descstr)
+    descstr = re.sub(r'([0-9]) *- *([0-9])', r'\1-\2', descstr)
 
     # Tokenise words, remove stop words, convert to lowercase
     descset = set([w.lower() for w in nltk.word_tokenize(descstr) if not w.lower() in stop_words])
@@ -141,7 +143,8 @@ def get_omissions(desc, char_json):
     # Determine omitted words
     omissions = desc_words.difference(out_words)
 
-    # Return set
+    # Return set of omitted words
+    return omissions
 
 # Convert a list of descriptions to a list of JSON
 def desc2charjson(sys_prompt, prompt, descs, client, model = 'desc2matrix', silent = False):
@@ -219,6 +222,11 @@ def desc2charjson_single(sys_prompt, prompt, desc, client, model = 'desc2matrix'
     
     # Return characteristics as array of dict
     return char_json
+
+# 'Follow-up' version of desc2charjson where an additional prompt (f_prompt) is given to ensure missing words are included
+def desc2charjson_followup(sys_prompt, prompt, f_prompt, descs, client, model = 'desc2matrix', silent = False):
+    
+
 
 def main(sys_prompt, prompt):
     # Create the parser
