@@ -77,45 +77,6 @@ def regularise_charjson(chars):
     # Return the new dict
     return new_dict
 
-# Convert a list of descriptions to a list of JSON
-def desc2charjson(sys_prompt, prompt, descs, client, model = 'desc2matrix', silent = False):
-    # Pass descriptions to LLM for response
-    char_jsons = []
-
-    for i, desc in enumerate(descs):
-        start = 0
-        if not silent:
-            print('desc2json: processing {}/{}... '.format(i+1, len(descs)), end = '', flush = True)
-            start = time.time()
-
-        # Generate response while specifying system prompt
-        resp = client.generate(model = model,
-                                   prompt = prompt.replace('[DESCRIPTION]', desc),
-                                   system = sys_prompt)['response']
-
-        # Attempt to parse prompt as JSON
-        try:
-            resp_json = json.loads(resp.replace("'", '"')) # Replace ' with "
-            # Check validity / regularise output
-            reg_resp_json = regularise_charjson(resp_json)
-            if reg_resp_json != False:
-                char_jsons.append({'status': 'success', 'data': reg_resp_json}) # Save parsed JSON with status
-            else:
-                if not silent:
-                    print('ollama output is JSON but is structured badly... ', end = '', flush = True)
-                char_jsons.append({'status': 'bad_structure', 'data': str(resp_json)}) # Save string with status
-        except json.decoder.JSONDecodeError as decode_err: # If LLM returns bad string
-            if not silent:
-                print('ollama returned bad JSON string... ', end = '', flush = True)
-            char_jsons.append({'status': 'invalid_json', 'data': resp}) # Save string with status
-        
-        if not silent:
-            elapsed_t = time.time() - start
-            print(f'done in {elapsed_t:.2f} s!')
-    
-    # Return characteristics as array of dict
-    return char_jsons
-
 # Convert a single description to a JSON
 def desc2charjson_single(sys_prompt, prompt, desc, client, model = 'desc2matrix', silent = False):
     # Pass descriptions to LLM for response
