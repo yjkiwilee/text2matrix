@@ -117,7 +117,7 @@ def regularise_charjson(chars):
     return new_dict
 
 # Convert a single description to a JSON
-def desc2charjson_single(sys_prompt, prompt, desc, client, model = 'desc2matrix', silent = False):
+def desc2charjson(sys_prompt, prompt, desc, client, model = 'desc2matrix', silent = False):
     # Pass descriptions to LLM for response
     char_json = {}
 
@@ -153,6 +153,7 @@ def desc2charjson_single(sys_prompt, prompt, desc, client, model = 'desc2matrix'
     
     # Return characteristics as array of dict
     return char_json
+
 
 def main(sys_prompt, prompt):
     # Create the parser
@@ -254,7 +255,7 @@ def main(sys_prompt, prompt):
             print('Processing {}/{}'.format(rowid + 1, len(descs)))
 
         # Generate output for one species
-        char_json = desc2charjson_single(sys_prompt, prompt, desc, client, silent = args.silent == True)
+        char_json = desc2charjson(sys_prompt, prompt, desc, client, silent = args.silent == True)
 
         # Add entry to sp_list
         sp_list.append({
