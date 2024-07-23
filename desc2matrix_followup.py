@@ -232,12 +232,18 @@ def desc2charjson_single(sys_prompt, prompt, desc, client, model = 'desc2matrix'
     return char_json
 
 # 'Follow-up' version of desc2charjson where an additional prompt (f_prompt) is given to ensure missing words are included
-def desc2charjson_followup(sys_prompt, prompt, f_prompt, descs, client, model = 'desc2matrix', silent = False):
+def desc2charjson_followup(sys_prompt, prompt, f_prompt, descs, client, model = 'desc2matrix', silent = False, prev_cj = None):
     # Variable to write final char_jsons to
     char_jsons = []
 
-    # Generate initial response using desc2charjson
-    init_char_jsons = desc2charjson(sys_prompt, prompt, descs, client, model, silent)
+    # Variable to store the initial char_jsons
+    init_char_jsons = None
+    
+    if(prev_cj != None): # If previous char_json is given
+        init_char_jsons = prev_cj # Simply copy previous char_json
+    else: # If previous char_json is not given
+        # Generate initial response using desc2charjson
+        init_char_jsons = desc2charjson(sys_prompt, prompt, descs, client, model, silent)
 
     # Iterate through char_jsons to ask follow-up questions
     for i, (char_json_raw, desc) in enumerate(zip(init_char_jsons, descs)):
@@ -293,12 +299,18 @@ def desc2charjson_followup(sys_prompt, prompt, f_prompt, descs, client, model = 
     return char_jsons
 
 # 'Follow-up' version of desc2charjson_s where an additional prompt (f_prompt) is given to ensure missing words are included
-def desc2charjson_s_followup(sys_prompt, prompt, f_prompt, desc, client, model = 'desc2matrix', silent = False):
+def desc2charjson_s_followup(sys_prompt, prompt, f_prompt, desc, client, model = 'desc2matrix', silent = False, prev_cj = None):
     # Variable to store the final char_json
     char_json = {}
 
-    # Get initial response using desc2charjson_single()
-    init_raw_char_json = desc2charjson_single(sys_prompt, prompt, desc, client, model, silent)
+    # Variable to store the initial raw char_json
+    init_raw_char_json = None
+    
+    if(prev_cj != None): # If previous char_json is given
+        init_raw_char_json = prev_cj # Simply copy previous char_json
+    else: # If previous char_json is not given
+        # Generate initial response using desc2charjson_single
+        init_raw_char_json = desc2charjson_single(sys_prompt, prompt, desc, client, model, silent)
 
     # Skip if JSON output was invalid or badly structured
     if(init_raw_char_json['status'] != 'success'):
@@ -357,8 +369,9 @@ def main(sys_prompt, prompt, f_prompt):
     parser = argparse.ArgumentParser(description = 'Extract JSON/dict from description files')
 
     # Basic I/O arguments
-    parser.add_argument('descfile', type = str, help = 'File containing the descriptions produced by dwca2csv.py')
     parser.add_argument('outputfile', type = str, help = 'File to write JSON to')
+    parser.add_argument('--descfile', required = False, type = str, help = 'File containing the descriptions produced by dwca2csv.py')
+    parser.add_argument('--prevcharjson', required = False, type = str, help = 'JSON output file from desc2matrix.py to work off of. If this is provided, descfile, start and spnum are ignored')
     parser.add_argument('--desctype', required = True, type = str, help = 'The "type" value used for morphological descriptions in the description file')
     parser.add_argument('--sysprompt', required = False, type = str, help = 'Text file storing the system prompt')
     parser.add_argument('--prompt', required = False, type = str, help = 'Text file storing the prompt')
@@ -396,20 +409,44 @@ def main(sys_prompt, prompt, f_prompt):
         with open(args.fprompt, 'r') as fp:
             f_prompt = fp.read()
 
-    # ===== Read descfile =====
+    # ===== Read descfile / JSON outfile =====
 
-    # Read descfile
-    descdf = pd.read_csv(args.descfile, sep = '\t')
+    # Input file type flag
+    input_file = 'descfile' if args.prevcharjson == None else 'charjson'
 
-    # Filter morphological descriptions only
-    descdf = descdf.loc[descdf['type'] == args.desctype]
+    # Variables for storing the descdf if input file mode is 'descfile'
+    descdf = None
+    # Variable for storing the previous char_json output if input file mode is 'charjson'
+    prev_charjson = None
+    # Variable to store the processed previour char_json to be fed into desc2json(_s)_followup()
+    prev_cj_proc = None
+    # List for storing the descriptions
+    descs = []
 
-    # Slice according to --start and --spnum options
-    if(args.spnum != None):
-        descdf = descdf[args.start : args.start + args.spnum]
+    if(input_file == 'descfile'): # If input file is descfile
+        # Read descfile
+        descdf = pd.read_csv(args.descfile, sep = '\t')
 
-    # Extract descriptions
-    descs = descdf['description'].tolist()
+        # Filter morphological descriptions only
+        descdf = descdf.loc[descdf['type'] == args.desctype]
+
+        # Slice according to --start and --spnum options
+        if(args.spnum != None):
+            descdf = descdf[args.start : args.start + args.spnum]
+
+        # Extract descriptions
+        descs = descdf['description'].tolist()
+    elif(input_file == 'charjson'): # If input file is char_json
+        # Read JSON file
+        with open(args.prevcharjson, 'r') as fp:
+            prev_charjson = json.load(fp)
+        
+        # Extract descriptions
+        descs = [sp['original_description'] for sp in prev_charjson['data']]
+
+        # Process prev_charjson to fit the format needed for desc2charjson & desc2charjson_s
+        prev_cj_proc = [{'status': sp['status'], 'data': sp['char_json'] if sp['status'] == 'success' else sp['failed_str']}
+                         for sp in prev_charjson['data']]
 
     # ===== Setup Ollama ======
 
@@ -460,13 +497,14 @@ def main(sys_prompt, prompt, f_prompt):
                 print('Processing {}/{}'.format(rowid + 1, len(descs)))
 
             # Generate output for one species
-            char_json = desc2charjson_s_followup(sys_prompt, prompt, f_prompt, desc, client, silent = args.silent == True)
+            char_json = desc2charjson_s_followup(sys_prompt, prompt, f_prompt, desc, client, silent = args.silent == True,
+                                                 prev_cj = prev_cj_proc[rowid] if input_file == 'charjson' else None)
 
             # Add entry to sp_list
             sp_list.append({
-                'coreid': descdf.iloc[rowid]['coreid'],
+                'coreid': descdf.iloc[rowid]['coreid'] if input_file == 'descfile' else prev_charjson['data'][rowid]['coreid'], # Pull coreid from either descdf or prev_charjson depending on the input file provided
                 'status': char_json['status'], # Status: one of 'success', 'bad_structure', 'bad_structure_followup', 'invalid_json', 'invalid_json_followup'
-                'original_description': descdf.iloc[rowid]['description'],
+                'original_description': descs[rowid],
                 'char_json': char_json['data'] if char_json['status'] == 'success' else None, # Only use this if parsing succeeded
                 'failed_str': char_json['data'] if char_json['status'] != 'success' else None # Only use this if parsing failed
             })
@@ -481,13 +519,14 @@ def main(sys_prompt, prompt, f_prompt):
     # If running in bulk mode (default, save to file after all species have been processed)
     else:
         # Generate output
-        char_jsons = desc2charjson_followup(sys_prompt, prompt, f_prompt, descs, client, silent = args.silent == True)
+        char_jsons = desc2charjson_followup(sys_prompt, prompt, f_prompt, descs, client, silent = args.silent == True,
+                                            prev_cj = prev_cj_proc if input_file == 'charjson' else None)
 
         # Compile data
         sp_list = [{
-            'coreid': descdf.iloc[rowid]['coreid'],
+            'coreid': descdf.iloc[rowid]['coreid'] if input_file == 'descfile' else prev_charjson['data'][rowid]['coreid'], # Pull coreid from either descdf or prev_charjson depending on the input file provided,
             'status': cj['status'], # Status: one of 'success', 'bad_structure', 'bad_structure_followup', 'invalid_json', 'invalid_json_followup'
-            'original_description': descdf.iloc[rowid]['description'],
+            'original_description': descs[rowid],
             'char_json': cj['data'] if cj['status'] == 'success' else None, # Only use this if parsing succeeded
             'failed_str': cj['data'] if cj['status'] != 'success' else None # Only use this if parsing failed
         } for rowid, cj in enumerate(char_jsons)]
