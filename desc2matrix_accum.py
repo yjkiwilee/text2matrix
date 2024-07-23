@@ -4,6 +4,7 @@ from ollama import Client
 import os
 import pandas as pd
 import time
+import copy
 
 # ===== Default prompts =====
 
@@ -78,7 +79,7 @@ JSON: {"characteristic": "fruit shape", "value": "ovoid"}, {"characteristic": "f
 Sentence: "Perennial dioecious herbs 60-100cm tall. Leaves alternate, green and glabrous adaxially and hirsute with white to greyish hair abaxially."
 JSON: {"characteristic": "life history", "value": "perennial"}, {"characteristic": "reproduction", "value": "dioecious"}, {"characteristic": "growth form", "value": "herb"}, , {"characteristic": "plant height", "value": "60-100 cm"}, {"characteristic": "leaf arrangement", "value": "alternate"}, {"characteristic": "leaf adaxial colour", "value": "green"}, {"characteristic": "leaf adaxial texture", "value": "glabrous"}, {"characteristic": "leaf abaxial texture", "value": "hirsute"}, {"characteristic": "leaf abaxial hair colour", "value": "white to greyish"}
 
-Include the following list of characteristics in your output. If you can't find one or more of these characteristics in the given description, put "NA" as the corresponding value. If you find a characteristic in the given description that is not in this list, add that characteristic in your response.
+Include the following list of characteristics in your output. Use the name of the characteristic as given in this list. If you can't find one or more of these characteristics in the given description, put "NA" as the corresponding value. If you find a characteristic in the given description that is not in this list, add that characteristic in your response.
 
 [CHARACTER_LIST]
 
@@ -154,6 +155,42 @@ def desc2charjson(sys_prompt, prompt, desc, client, model = 'desc2matrix', silen
     # Return characteristics as array of dict
     return char_json
 
+def desc2charjson_wchars(sys_prompt, prompt, desc, chars, client, model = 'desc2matrix', silent = False):
+    # Pass descriptions to LLM for response
+    char_json = {}
+
+    start = 0
+    if not silent:
+        print('desc2json: processing... ', end = '', flush = True)
+        start = time.time()
+
+    # Generate response while specifying system prompt
+    resp = client.generate(model = model,
+                                prompt = prompt.replace('[DESCRIPTION]', desc).replace('[CHARACTER_LIST]', ', '.join(chars)),
+                                system = sys_prompt)['response']
+
+    # Attempt to parse prompt as JSON
+    try:
+        resp_json = json.loads(resp.replace("'", '"')) # Replace ' with "
+        # Check validity / regularise output
+        reg_resp_json = regularise_charjson(resp_json)
+        if reg_resp_json != False:
+            char_json = {'status': 'success', 'data': reg_resp_json} # Save parsed JSON with status
+        else:
+            if not silent:
+                print('ollama output is JSON but is structured badly... ', end = '', flush = True)
+            char_json = {'status': 'bad_structure', 'data': str(resp_json)} # Save string with status
+    except json.decoder.JSONDecodeError as decode_err: # If LLM returns bad string
+        if not silent:
+            print('ollama returned bad JSON string... ', end = '', flush = True)
+        char_json = {'status': 'invalid_json', 'data': resp} # Save string with status
+    
+    if not silent:
+        elapsed_t = time.time() - start
+        print(f'done in {elapsed_t:.2f} s!')
+    
+    # Return characteristics as array of dict
+    return char_json
 
 def main(sys_prompt, prompt):
     # Create the parser
@@ -242,11 +279,16 @@ def main(sys_prompt, prompt):
         'prompt': prompt,
         'params': params,
         'mode': 'desc2json',
+        'charlist_history': [],
+        'charlist_len_history': [],
         'data': []
     }
 
     # Variable to store extracted characteristic data
     sp_list = []
+
+    # Variable to store the character list history
+    charlist_history = []
 
     # Loop through each species description
     for rowid, desc in enumerate(descs):
@@ -255,7 +297,31 @@ def main(sys_prompt, prompt):
             print('Processing {}/{}'.format(rowid + 1, len(descs)))
 
         # Generate output for one species
-        char_json = desc2charjson(sys_prompt, prompt, desc, client, silent = args.silent == True)
+        if rowid == 0 or len(charlist_history[rowid - 1]) == 0: # If this is the first species or the first species to succeed
+            # Generate output without predetermined character list
+            char_json = desc2charjson(sys_prompt, prompt, desc, client, silent = args.silent == True)
+        else: # Otherwise
+            # Get the list of characters from the last row
+            chars = charlist_history[rowid - 1]
+
+            # Generate output with predetermined character list
+            char_json = desc2charjson_wchars(sys_prompt, prompt, desc, chars, client, silent = args.silent == True)
+
+        if(char_json['status'] == 'success'): # If run succeeded
+            # Extract character list
+            chars = [char['characteristic'] for char in char_json['data']]
+        
+            # Append only if the new character list is longer or if this is the first entry
+            if(rowid == 0 or len(chars) > len(charlist_history[rowid - 1])):
+                charlist_history.append(chars)
+            else: # Otherwise copy last entry
+                charlist_history.append(copy.deepcopy(charlist_history[rowid - 1]))
+        elif(rowid == 0): # If this is the first species
+            # Append empty list
+            charlist_history.append([])
+        else: # Otherwise
+            # Copy the last entry
+            charlist_history.append(copy.deepcopy(charlist_history[rowid - 1]))
 
         # Add entry to sp_list
         sp_list.append({
@@ -268,6 +334,12 @@ def main(sys_prompt, prompt):
         
         # Store generated outputs
         outdict['data'] = sp_list
+
+        # Store charlist history
+        outdict['charlist_history'] = charlist_history
+
+        # Store charlist length history
+        outdict['charlist_len_history'] = [len(charlist) for charlist in charlist_history]
 
         # Write output as JSON
         with open(args.outputfile, 'w') as outfile:
