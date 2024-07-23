@@ -7,8 +7,44 @@ import time
 
 # ===== Default prompts =====
 
-sys_prompt = ""
-prompt = ""
+global_sys_prompt = """
+You are a diligent robot assistant made by a botanist. You have expert knowledge of botanical terminology.
+Your goal is to transcribe the given list of botanical characteristics into a valid JSON output.
+Your answer must be as complete and accurate as possible.
+You must answer in valid JSON, with no other text.
+"""
+
+global_prompt = """
+You are given a botanical description of a plant species taken from published floras.
+You extract the types of characteristics mentioned in the description and their corresponding values, and transcribe them into JSON.
+Your answer should be an array of JSON with name of the characteristic and the corresponding value formatted as follows: {"characteristic":(name of characteristic), "value":(value of characteristic)}.
+(name of characteristic) should be substituted with the name of the characteristic, and (value of characteristic) should be substituted with the corresponding value.
+The name of every characteristic must be written in lowercase.
+Make sure that you surround your final answer with square brackets [ and ] so that it is a valid array.
+Do not include any text (e.g. introductory text) other than the valid array of JSON.
+
+Follow the instructions below.
+
+1. Transcribe all the mentioned characteristics relating to the whole plant, such as growth form, reproduction, plant height, and branching.
+
+2. Iterate through every mentioned organs (e.g. leaf and other leaf-like organs, stem, flower, inflorescence, fruit, seed and root) and parts of organs (e.g. stipule, anther, ovary) and transcribe their corresponding characteristics.
+You must transcribe the length, width, shape, color, surface texture, surface features, and arrangement of each organ or part of an organ.
+Each of these characteristics must be separate. The name of every characteristic relating to an organ or a part of an organ must be formatted as follows: "(name of organ or part of organ) (type of characteristic)", where (name of organ or part of organ) should be substituted with the name of the organ or part of the organ, and (type of characteristic) should be substituted with the specific type of characteristic.
+
+In the final output JSON, try to include all words that appear in the given description, as long as they carry information about the plant species.
+Do not make up characteristics that are not mentioned in the description.
+
+Here are some examples of descriptions and their correponding transcription in JSON:
+
+Sentence: "Fruit: ovoid berry, 10-12 mm wide, 13-15 mm long, yellow to yellow-green throughout."
+JSON: {"characteristic": "fruit shape", "value": "ovoid"}, {"characteristic": "fruit type", "value": "berry"}, {"characteristic": "fruit width", "value": "10-12 mm"}, {"characteristic": "fruit length", "value": "13-15 mm"}, {"characteristic": "fruit color", "value": "yellow to yellow-green"}
+
+Sentence: "Perennial dioecious herbs 60-100cm tall. Leaves alternate, green and glabrous adaxially and hirsute with white to greyish hair abaxially."
+JSON: {"characteristic": "life history", "value": "perennial"}, {"characteristic": "reproduction", "value": "dioecious"}, {"characteristic": "growth form", "value": "herb"}, , {"characteristic": "plant height", "value": "60-100 cm"}, {"characteristic": "leaf arrangement", "value": "alternate"}, {"characteristic": "leaf adaxial colour", "value": "green"}, {"characteristic": "leaf adaxial texture", "value": "glabrous"}, {"characteristic": "leaf abaxial texture", "value": "hirsute"}, {"characteristic": "leaf abaxial hair colour", "value": "white to greyish"}
+
+Here is the description that you should transcribe:
+
+"""
 
 # ===== Functions =====
 
@@ -116,7 +152,7 @@ def desc2charjson_single(sys_prompt, prompt, desc, client, model = 'desc2matrix'
     # Return characteristics as array of dict
     return char_json
 
-def main():
+def main(sys_prompt, prompt):
     # Create the parser
     parser = argparse.ArgumentParser(description = 'Extract JSON/dict from description files')
 
@@ -124,8 +160,8 @@ def main():
     parser.add_argument('descfile', type = str, help = 'File containing the descriptions produced by dwca2csv.py')
     parser.add_argument('outputfile', type = str, help = 'File to write JSON to')
     parser.add_argument('--desctype', required = True, type = str, help = 'The "type" value used for morphological descriptions in the description file')
-    parser.add_argument('--sysprompt', required = False, type = str, default = './prompts/prompt.txt', help = 'Text file storing the system prompt')
-    parser.add_argument('--prompt', required = False, type = str, default = './prompts/prompt.txt', help = 'Text file storing the prompt')
+    parser.add_argument('--sysprompt', required = False, type = str, help = 'Text file storing the system prompt')
+    parser.add_argument('--prompt', required = False, type = str, help = 'Text file storing the prompt')
     parser.add_argument('--silent', required = False, action = 'store_true', help = 'Suppress output showing job progress')
 
     # Run configs
@@ -149,7 +185,6 @@ def main():
     # ===== Prompt setup =====
 
     # Load prompt files if needed
-    # sys_prompt and prompt in global scope
     if(args.sysprompt != None):
         with open(args.sysprompt, 'r') as fp:
             sys_prompt = fp.read()
@@ -260,4 +295,4 @@ def main():
             json.dump(outdict, outfile)
 
 if __name__ == '__main__':
-    main()
+    main(global_sys_prompt, global_prompt)
