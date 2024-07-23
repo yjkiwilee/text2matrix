@@ -9,12 +9,47 @@ import time
 
 global_sys_prompt = """
 You are a diligent robot assistant made by a botanist. You have expert knowledge of botanical terminology.
-Your goal is to transcribe the given list of botanical characteristics into a valid JSON output.
+Your goal is to transcribe the given botanical description of plant characteristics into a valid JSON output.
 Your answer must be as complete and accurate as possible.
 You must answer in valid JSON, with no other text.
 """
 
 # [DESCRIPTION] in the prompt text is replaced by the plant description.
+global_init_prompt = """
+You are given a botanical description of a plant species taken from published floras.
+You extract the types of characteristics mentioned in the description and their corresponding values, and transcribe them into JSON.
+Your answer should be an array of JSON with name of the characteristic and the corresponding value formatted as follows: {"characteristic":(name of characteristic), "value":(value of characteristic)}.
+(name of characteristic) should be substituted with the name of the characteristic, and (value of characteristic) should be substituted with the corresponding value.
+The name of every characteristic must be written in lowercase.
+Make sure that you surround your final answer with square brackets [ and ] so that it is a valid array.
+Do not include any text (e.g. introductory text) other than the valid array of JSON.
+
+Follow the instructions below.
+
+1. Transcribe all the mentioned characteristics relating to the whole plant, such as growth form, reproduction, plant height, and branching.
+
+2. Iterate through every mentioned organs (e.g. leaf and other leaf-like organs, stem, flower, inflorescence, fruit, seed and root) and parts of organs (e.g. stipule, anther, ovary) and transcribe their corresponding characteristics.
+You must transcribe the length, width, shape, color, surface texture, surface features, and arrangement of each organ or part of an organ.
+Each of these characteristics must be separate. The name of every characteristic relating to an organ or a part of an organ must be formatted as follows: "(name of organ or part of organ) (type of characteristic)", where (name of organ or part of organ) should be substituted with the name of the organ or part of the organ, and (type of characteristic) should be substituted with the specific type of characteristic.
+
+In the final output JSON, try to include all words that appear in the given description, as long as they carry information about the plant species.
+Do not make up characteristics that are not mentioned in the description.
+
+Here are some examples of descriptions and their correponding transcription in JSON:
+
+Sentence: "Fruit: ovoid berry, 10-12 mm wide, 13-15 mm long, yellow to yellow-green throughout."
+JSON: {"characteristic": "fruit shape", "value": "ovoid"}, {"characteristic": "fruit type", "value": "berry"}, {"characteristic": "fruit width", "value": "10-12 mm"}, {"characteristic": "fruit length", "value": "13-15 mm"}, {"characteristic": "fruit color", "value": "yellow to yellow-green"}
+
+Sentence: "Perennial dioecious herbs 60-100cm tall. Leaves alternate, green and glabrous adaxially and hirsute with white to greyish hair abaxially."
+JSON: {"characteristic": "life history", "value": "perennial"}, {"characteristic": "reproduction", "value": "dioecious"}, {"characteristic": "growth form", "value": "herb"}, , {"characteristic": "plant height", "value": "60-100 cm"}, {"characteristic": "leaf arrangement", "value": "alternate"}, {"characteristic": "leaf adaxial colour", "value": "green"}, {"characteristic": "leaf adaxial texture", "value": "glabrous"}, {"characteristic": "leaf abaxial texture", "value": "hirsute"}, {"characteristic": "leaf abaxial hair colour", "value": "white to greyish"}
+
+Here is the description that you should transcribe:
+
+[DESCRIPTION]
+"""
+
+# [DESCRIPTION] in the prompt text is replaced by the plant description.
+# [CHARACTER_LIST] in the prompt text is replaced by the list of characteristics to extract.
 global_prompt = """
 You are given a botanical description of a plant species taken from published floras.
 You extract the types of characteristics mentioned in the description and their corresponding values, and transcribe them into JSON.
@@ -42,6 +77,10 @@ JSON: {"characteristic": "fruit shape", "value": "ovoid"}, {"characteristic": "f
 
 Sentence: "Perennial dioecious herbs 60-100cm tall. Leaves alternate, green and glabrous adaxially and hirsute with white to greyish hair abaxially."
 JSON: {"characteristic": "life history", "value": "perennial"}, {"characteristic": "reproduction", "value": "dioecious"}, {"characteristic": "growth form", "value": "herb"}, , {"characteristic": "plant height", "value": "60-100 cm"}, {"characteristic": "leaf arrangement", "value": "alternate"}, {"characteristic": "leaf adaxial colour", "value": "green"}, {"characteristic": "leaf adaxial texture", "value": "glabrous"}, {"characteristic": "leaf abaxial texture", "value": "hirsute"}, {"characteristic": "leaf abaxial hair colour", "value": "white to greyish"}
+
+Include the following list of characteristics in your output. If you can't find one or more of these characteristics in the given description, put "NA" as the corresponding value. If you find a characteristic in the given description that is not in this list, add that characteristic in your response.
+
+[CHARACTER_LIST]
 
 Here is the description that you should transcribe:
 
@@ -130,7 +169,6 @@ def main(sys_prompt, prompt):
     # Run configs
     parser.add_argument('--start', required = False, type = int, default = 0, help = 'Order ID of the species to start transcribing from')
     parser.add_argument('--spnum', required = False, type = int, help = 'Number of species to process descriptions of. Default behaviour is to process all species present in the file')
-    parser.add_argument('--saveeachsp', required = False, action = 'store_true', help = 'If specified, the script writes outputs to the file after running each species description')
 
     # Model properties
     parser.add_argument('--model', required = False, type = str, default = 'llama3', help = 'Name of base LLM to use')
@@ -206,51 +244,28 @@ def main(sys_prompt, prompt):
         'data': []
     }
 
-    # If running in 'saveeachsp' mode
-    if(args.saveeachsp == True):
-        # Variable to store extracted characteristic data
-        sp_list = []
+    # Variable to store extracted characteristic data
+    sp_list = []
 
-        # Loop through each species description
-        for rowid, desc in enumerate(descs):
-            # Log number of species if not silent
-            if(args.silent != True):
-                print('Processing {}/{}'.format(rowid + 1, len(descs)))
+    # Loop through each species description
+    for rowid, desc in enumerate(descs):
+        # Log number of species if not silent
+        if(args.silent != True):
+            print('Processing {}/{}'.format(rowid + 1, len(descs)))
 
-            # Generate output for one species
-            char_json = desc2charjson_single(sys_prompt, prompt, desc, client, silent = args.silent == True)
+        # Generate output for one species
+        char_json = desc2charjson_single(sys_prompt, prompt, desc, client, silent = args.silent == True)
 
-            # Add entry to sp_list
-            sp_list.append({
-                'coreid': descdf.iloc[rowid]['coreid'],
-                'status': char_json['status'], # Status: one of 'success', 'bad_structure', 'invalid_json'
-                'original_description': descdf.iloc[rowid]['description'],
-                'char_json': char_json['data'] if char_json['status'] == 'success' else None, # Only use this if parsing succeeded
-                'failed_str': char_json['data'] if char_json['status'] != 'success' else None # Only use this if parsing failed
-            })
-            
-            # Store generated outputs
-            outdict['data'] = sp_list
-
-            # Write output as JSON
-            with open(args.outputfile, 'w') as outfile:
-                json.dump(outdict, outfile)
-
-    # If running in bulk mode (default, save to file after all species have been processed)
-    else:
-        # Generate output
-        char_jsons = desc2charjson(sys_prompt, prompt, descs, client, silent = args.silent == True)
-
-        # Compile data
-        sp_list = [{
+        # Add entry to sp_list
+        sp_list.append({
             'coreid': descdf.iloc[rowid]['coreid'],
-            'status': cj['status'], # Status: one of 'success', 'bad_structure', 'invalid_json'
+            'status': char_json['status'], # Status: one of 'success', 'bad_structure', 'invalid_json'
             'original_description': descdf.iloc[rowid]['description'],
-            'char_json': cj['data'] if cj['status'] == 'success' else None, # Only use this if parsing succeeded
-            'failed_str': cj['data'] if cj['status'] != 'success' else None # Only use this if parsing failed
-        } for rowid, cj in enumerate(char_jsons)]
-
-        # Store extracted information
+            'char_json': char_json['data'] if char_json['status'] == 'success' else None, # Only use this if parsing succeeded
+            'failed_str': char_json['data'] if char_json['status'] != 'success' else None # Only use this if parsing failed
+        })
+        
+        # Store generated outputs
         outdict['data'] = sp_list
 
         # Write output as JSON
