@@ -20,6 +20,8 @@ def get_word_set(descstr):
 
     # Insert whitespace before/after period, comma, colon, semicolon and brackets
     descstr = re.sub(r'[^0-9] *\. *[^0-9]', '. ', descstr) # Do not substitute periods in floating-point numbers
+    descstr = re.sub(r'[^0-9] *\. *[0-9]', '. ', descstr) # Substitute periods next to numbers if either side is not a number
+    descstr = re.sub(r'[0-9] *\. *[^0-9]', '. ', descstr)
     descstr = re.sub(r' *, *', ', ', descstr)
     descstr = re.sub(r' *: *', ': ', descstr)
     descstr = re.sub(r' *; *', '; ', descstr)
@@ -27,7 +29,7 @@ def get_word_set(descstr):
     descstr = re.sub(r' *\) *', ') ', descstr)
 
     # Collapse numeric ranges to single 'word' to check for presence
-    descstr = re.sub(r'([0-9]) *- * ([0-9])', r'\1-\2', descstr)
+    descstr = re.sub(r'([0-9]) *- *([0-9])', r'\1-\2', descstr)
 
     # Tokenise words, remove stop words, convert to lowercase
     descset = set([w.lower() for w in nltk.word_tokenize(descstr) if not w.lower() in stop_words])
