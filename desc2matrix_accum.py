@@ -280,6 +280,7 @@ def main(sys_prompt, init_prompt, prompt):
     # Dictionary to store the final output along with metadata
     outdict = {
         'sys_prompt': sys_prompt,
+        'init_prompt': init_prompt,
         'prompt': prompt,
         'params': params,
         'mode': 'desc2json',
