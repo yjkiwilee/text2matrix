@@ -192,7 +192,7 @@ def desc2charjson_wchars(sys_prompt, prompt, desc, chars, client, model = 'desc2
     # Return characteristics as array of dict
     return char_json
 
-def main(sys_prompt, prompt):
+def main(sys_prompt, init_prompt, prompt):
     # Create the parser
     parser = argparse.ArgumentParser(description = 'Extract JSON/dict from description files')
 
@@ -202,6 +202,7 @@ def main(sys_prompt, prompt):
     parser.add_argument('--desctype', required = True, type = str, help = 'The "type" value used for morphological descriptions in the description file')
     parser.add_argument('--sysprompt', required = False, type = str, help = 'Text file storing the system prompt')
     parser.add_argument('--prompt', required = False, type = str, help = 'Text file storing the prompt')
+    parser.add_argument('--initprompt', required = False, type = str, help = 'Text file storing the initial prompt (i.e. prompt without [CHARACTER_LIST])')
     parser.add_argument('--silent', required = False, action = 'store_true', help = 'Suppress output showing job progress')
 
     # Run configs
@@ -230,6 +231,9 @@ def main(sys_prompt, prompt):
     if(args.prompt != None):
         with open(args.prompt, 'r') as fp:
             prompt = fp.read()
+    if(args.initprompt != None):
+        with open(args.initprompt, 'r') as fp:
+            init_prompt = fp.read()
 
     # ===== Read descfile =====
 
@@ -299,7 +303,7 @@ def main(sys_prompt, prompt):
         # Generate output for one species
         if rowid == 0 or len(charlist_history[rowid - 1]) == 0: # If this is the first species or the first species to succeed
             # Generate output without predetermined character list
-            char_json = desc2charjson(sys_prompt, prompt, desc, client, silent = args.silent == True)
+            char_json = desc2charjson(sys_prompt, init_prompt, desc, client, silent = args.silent == True)
         else: # Otherwise
             # Get the list of characters from the last row
             chars = charlist_history[rowid - 1]
@@ -346,4 +350,4 @@ def main(sys_prompt, prompt):
             json.dump(outdict, outfile)
 
 if __name__ == '__main__':
-    main(global_sys_prompt, global_prompt)
+    main(global_sys_prompt, global_init_prompt, global_prompt)
