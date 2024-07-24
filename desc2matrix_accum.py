@@ -279,8 +279,8 @@ def main(sys_prompt, prompt):
         'prompt': prompt,
         'params': params,
         'mode': 'desc2json',
-        'charlist_history': [],
         'charlist_len_history': [],
+        'charlist_history': [],
         'data': []
     }
 
