@@ -270,7 +270,7 @@ def main(sys_prompt, init_prompt, prompt):
     )
 
     # Make connection to client
-    client = Client(host = 'http://localhost:11434')
+    client = Client(host = 'http://localhost:11434', timeout = 60 * 5)
 
     # Create model with the specified params
     client.create(model = 'desc2matrix', modelfile = modelfile)
