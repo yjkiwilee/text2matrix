@@ -283,7 +283,7 @@ def main(sys_prompt, init_prompt, prompt):
         'init_prompt': init_prompt,
         'prompt': prompt,
         'params': params,
-        'mode': 'desc2json',
+        'mode': 'desc2json_accum',
         'charlist_len_history': [],
         'charlist_history': [],
         'data': []
