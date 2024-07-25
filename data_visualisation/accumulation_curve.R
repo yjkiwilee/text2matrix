@@ -10,7 +10,7 @@ pacman::p_load("tidyverse", "here", "jsonlite")
 accum_dat <- read_json(here("../json_outputs/accum_out_moresp.json"))
 # Data from desc2matrix_accum_tab.py, which populates the initial character
 # list by asking the LLM to tabulate the characteristics from the first three species descriptions
-accum_tab_dat <- read_json(here("../json_outputs/accum_tab_out_morsp.json"))
+accum_tab_dat <- read_json(here("../json_outputs/accum_tab_out_moresp.json"))
 
 # ===== Generate accumulation curve =====
 
@@ -78,3 +78,46 @@ accum_plt <- ggplot() +
   theme(legend.position = "bottom")
 # accum_plt
 ggsave(here("figures/accum_curve.png"), accum_plt, width = 5, height = 4)
+
+# ===== Inspect final trait list for the two runs =====
+
+acc_final_charlist <- accum_dat$charlist_history[[length(accum_dat$charlist_history)]]
+paste(unlist(acc_final_charlist), collapse = ", ")
+acc_tab_final_charlist <- accum_tab_dat$charlist_history[[length(accum_tab_dat$charlist_history)]]
+paste(unlist(acc_tab_final_charlist), collapse = ", ")
+
+# Characters retrieved in both runs
+comm <- intersect(acc_final_charlist, acc_tab_final_charlist)
+# Characters retrieved only without tabulation
+acc_only <- setdiff(acc_final_charlist, acc_tab_final_charlist)
+# Characters retrieved only with tabulation
+acc_tab_only <- setdiff(acc_tab_final_charlist, acc_final_charlist)
+
+# Make lengths the same
+chars_temp_list <- list(comm, acc_only, acc_tab_only)
+chars_max_len <- max(sapply(chars_temp_list, length))
+chars_temp_reg <- lapply(lapply(chars_temp_list, unlist), "length<-", chars_max_len)
+
+# Generate markdown table string
+
+na_process <- function(val) {
+  ifelse(is.na(val), "", val)
+}
+
+tab_rows <- sapply(seq(1, chars_max_len), function(i) {
+  paste0("| ",
+         na_process(chars_temp_reg[[1]][[i]]),
+         " | ",
+         na_process(chars_temp_reg[[2]][[i]]),
+         " | ",
+         chars_temp_reg[[3]][[i]],
+         " |")
+})
+
+rows_str <- paste(tab_rows, collapse = "\n")
+
+tab_str <- paste(c("| Retrieved in both runs | Without tabulation only | With tabulation only |",
+                 "| --- | --- | --- |",
+                 rows_str),
+                 collapse = "\n")
+tab_str
