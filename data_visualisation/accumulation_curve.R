@@ -7,10 +7,10 @@ pacman::p_load("tidyverse", "here", "jsonlite")
 # Load json
 # Data from desc2matrix_accum.py, which populates the initial character
 # list by asking the prompt from desc2matrix.py with the first species description
-accum_dat <- read_json(here("../json_outputs/accum_out_moresp.json"))
+accum_dat <- read_json(here("../json_outputs/accum_out_800sp.json"))
 # Data from desc2matrix_accum_tab.py, which populates the initial character
 # list by asking the LLM to tabulate the characteristics from the first three species descriptions
-accum_tab_dat <- read_json(here("../json_outputs/accum_tab_out_moresp.json"))
+accum_tab_dat <- read_json(here("../json_outputs/accum_tab_out_800sp.json"))
 
 # ===== Generate accumulation curve =====
 
@@ -76,8 +76,8 @@ accum_plt <- ggplot() +
   scale_color_brewer(palette = "Dark2", labels = c("Without initial tabulation", "With initial tabulation")) +
   theme_bw() +
   theme(legend.position = "bottom")
-# accum_plt
-ggsave(here("figures/accum_curve.png"), accum_plt, width = 5, height = 4)
+accum_plt
+ggsave(here("figures/accum_curve_800.png"), accum_plt, width = 5, height = 4)
 
 # ===== Inspect final trait list for the two runs =====
 
