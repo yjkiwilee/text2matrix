@@ -278,6 +278,69 @@ def desc2charjson_wchars(sys_prompt, prompt, desc, chars, client, model = 'desc2
     # Return characteristics as array of dict
     return char_json
 
+# 'Follow-up' version of desc2charjson_wchars where an additional prompt (f_prompt) is given to ensure missing words are included
+def desc2charjson_followup(sys_prompt, prompt, f_prompt, desc, chars, client, model = 'desc2matrix', silent = False):
+    # Variable to store the final char_json
+    char_json = {}
+
+    # Variable to store the initial raw char_json
+    init_raw_char_json = None
+
+    # Generate initial response using desc2charjson_single
+    init_raw_char_json = desc2charjson_wchars(sys_prompt, prompt, desc, chars, client, model, silent)
+
+    # Skip if JSON output was invalid or badly structured
+    if(init_raw_char_json['status'] != 'success'):
+        # Simply return without follow-up processing
+        return init_raw_char_json
+
+    # Extract the char_json itself
+    init_char_json = init_raw_char_json['data']
+
+    start = 0
+    # Progress log
+    if not silent:
+        print('desc2json_followup: processing... ', end = '', flush = True)
+        start = time.time()
+    
+    # Retrieve omissions
+    omissions = get_omissions(desc, init_char_json)
+
+    # Build the follow-up prompt
+    followup_prompt = f_prompt.replace('[DESCRIPTION]', desc).replace('[MISSING_WORDS]', ', '.join(sorted(omissions)))
+
+    # Generate response using the follow-up prompt
+    followup_resp = client.chat(model = model, stream = False, messages = [
+        {'role': 'system', 'content': sys_prompt}, 
+        {'role': 'user', 'content': prompt.replace('[DESCRIPTION]', desc)},
+        {'role': 'assistant', 'content': json.dumps(init_char_json, indent=4)},
+        {'role': 'user', 'content': followup_prompt}
+    ])['message']['content']
+
+    # Attempt to parse prompt as JSON
+    try:
+        resp_json = json.loads(followup_resp.replace("'", '"')) # Replace ' with "
+        # Check validity / regularise output
+        reg_resp_json = regularise_charjson(resp_json)
+        if reg_resp_json != False:
+            char_json = {'status': 'success', 'data': reg_resp_json} # Save parsed JSON with status
+        else:
+            if not silent:
+                print('ollama output is JSON but is structured badly... ', end = '', flush = True)
+            char_json = {'status': 'bad_structure_followup', 'data': str(resp_json)} # Save string with status; 'followup' to distinguish it from failure in the first run
+    except json.decoder.JSONDecodeError as decode_err: # If LLM returns bad string
+        if not silent:
+            print('ollama returned bad JSON string... ', end = '', flush = True)
+        char_json = {'status': 'invalid_json_followup', 'data': followup_resp} # Save string with status
+
+    # Progress log
+    if not silent:
+        elapsed_t = time.time() - start
+        print(f'done in {elapsed_t:.2f} s!')
+
+    # Return characteristics as an array of dict
+    return char_json
+
 # Generate a structured 'table' of character JSON from the given species descriptions
 def get_char_table(sys_prompt, prompt, spids, descs, client, model = 'desc2matrix', silent = False):
     # Variable to store the output JSON 'table'
@@ -321,7 +384,7 @@ def get_char_table(sys_prompt, prompt, spids, descs, client, model = 'desc2matri
     # Return table of characteristics
     return tab_json
 
-def main(sys_prompt, tab_prompt, prompt):
+def main(sys_prompt, tab_prompt, prompt, f_prompt):
     # Create the parser
     parser = argparse.ArgumentParser(description = 'Extract JSON/dict from description files')
 
@@ -332,6 +395,7 @@ def main(sys_prompt, tab_prompt, prompt):
     parser.add_argument('--sysprompt', required = False, type = str, help = 'Text file storing the system prompt')
     parser.add_argument('--prompt', required = False, type = str, help = 'Text file storing the prompt')
     parser.add_argument('--tabprompt', required = False, type = str, help = 'Text file storing the prompt to use for tabulating the initial list of characteristics')
+    parser.add_argument('--fprompt', required = False, type = str, help = 'Text file storing the follow-up prompt')
     parser.add_argument('--silent', required = False, action = 'store_true', help = 'Suppress output showing job progress')
 
     # Run configs
@@ -363,6 +427,9 @@ def main(sys_prompt, tab_prompt, prompt):
     if(args.tabprompt != None):
         with open(args.tabprompt, 'r') as fp:
             tab_prompt = fp.read()
+    if(args.fprompt != None):
+        with open(args.fprompt, 'r') as fp:
+            f_prompt = fp.read()
 
     # ===== Read descfile =====
 
@@ -411,6 +478,7 @@ def main(sys_prompt, tab_prompt, prompt):
         'sys_prompt': sys_prompt,
         'tab_prompt': tab_prompt,
         'prompt': prompt,
+        'f_prompt': f_prompt,
         'initspnum': args.initspnum,
         'params': params,
         'mode': 'desc2json_accum_tab',
@@ -454,7 +522,7 @@ def main(sys_prompt, tab_prompt, prompt):
         chars = charlist_history[rowid] # NOT rowid - 1 since there is already one element in the list
 
         # Generate output with predetermined character list
-        char_json = desc2charjson_wchars(sys_prompt, prompt, desc, chars, client, silent = args.silent == True)
+        char_json = desc2charjson_followup(sys_prompt, prompt, f_prompt, desc, chars, client, silent = args.silent == True)
 
         if(char_json['status'] == 'success'): # If run succeeded
             # Extract character list
@@ -472,7 +540,7 @@ def main(sys_prompt, tab_prompt, prompt):
         # Add entry to sp_list
         sp_list.append({
             'coreid': descdf.iloc[rowid]['coreid'],
-            'status': char_json['status'], # Status: one of 'success', 'bad_structure', 'invalid_json'
+            'status': char_json['status'], # Status: one of 'success', 'bad_structure', 'bad_structure_followup', 'invalid_json', 'invalid_json_followup'
             'original_description': descdf.iloc[rowid]['description'],
             'char_json': char_json['data'] if char_json['status'] == 'success' else None, # Only use this if parsing succeeded
             'failed_str': char_json['data'] if char_json['status'] != 'success' else None # Only use this if parsing failed
@@ -494,4 +562,4 @@ def main(sys_prompt, tab_prompt, prompt):
     
 
 if __name__ == '__main__':
-    main(global_sys_prompt, global_tablulation_prompt, global_prompt)
+    main(global_sys_prompt, global_tablulation_prompt, global_prompt, global_followup_prompt)
