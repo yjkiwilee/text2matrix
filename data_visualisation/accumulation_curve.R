@@ -100,6 +100,10 @@ final_chars <- lapply(accum_charhist, function(charhist) {
 })
 names(final_chars) <- c("accum", "accum_tab", "accum_f")
 
+# paste(final_chars[["accum"]], collapse = ", ")
+paste(final_chars[["accum_tab"]], collapse = ", ")
+paste(final_chars[["accum_f"]], collapse = ", ")
+
 # Draw Venn diagram of characteristics
 char_venn <- ggVennDiagram(final_chars,
               category.names = c("A", "AT", "AF")) +
