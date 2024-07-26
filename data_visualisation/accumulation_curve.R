@@ -14,7 +14,7 @@ accum_tab_dat <- read_json(here::here("../json_outputs/accum_tab_out_800sp.json"
 # Data from desc2matrix_accum_followup.py, which is built upon desc2matrix_accum_tab.py
 # but asks a 'follow-up question' including words that were omitted from the original description
 # to increase trait coverage
-accum_f_dat <- read_json(here::here("../json_outputs/accum_followup_largerctx_out.json"))
+accum_f_dat <- read_json(here::here("../json_outputs/accum_followup_out_800sp.json"))
 
 # ===== Generate accumulation curve =====
 
@@ -52,7 +52,7 @@ method_names <- c("accum", "accum_tab", "accum_f")
 method_list <- lapply(seq_along(accum_charlens), function(i) { rep(mode_names[i], length(accum_charlens[[i]])) })
 
 # Species IDs
-id_list <- sapply(accum_charlens, function(charlens) { seq(ifelse(is.na(charlens[[1]]), 0, 1), length.out = length(charlens)) })
+id_list <- lapply(accum_charlens, function(charlens) { seq(ifelse(is.na(charlens[[1]]), 0, 1), length.out = length(charlens)) })
 sp_ids <- unlist(id_list)
 
 # Build tibble
@@ -99,7 +99,6 @@ final_chars <- lapply(accum_charhist, function(charhist) {
   unname(sapply(final_charlist, function(char) { sub("color", "colour", char, ignore.case = TRUE) })) # Make spelling variants uniform
 })
 names(final_chars) <- c("accum", "accum_tab", "accum_f")
-final_chars
 
 # Draw Venn diagram of characteristics
 char_venn <- ggVennDiagram(final_chars,
