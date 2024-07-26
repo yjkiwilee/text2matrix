@@ -77,7 +77,7 @@ accum_plt <- ggplot() +
   theme_bw() +
   theme(legend.position = "bottom")
 accum_plt
-ggsave(here("figures/accum_curve_800.png"), accum_plt, width = 5, height = 4)
+ggsave(here::here("figures/accum_curve_800.png"), accum_plt, width = 5, height = 4)
 
 # ===== Inspect final trait list for the two runs =====
 
