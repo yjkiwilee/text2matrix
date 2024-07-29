@@ -65,7 +65,7 @@ accum_plt <- ggplot() +
     breaks = c("accum", "accum_lc")) +
   theme_bw() +
   theme(legend.position = "bottom") +
-  guides(color = guide_legend(nrow = 3, byrow = FALSE))
+  guides(color = guide_legend(nrow = 2, byrow = FALSE))
 accum_plt
 ggsave(here::here("figures/accum_curve_800_followup.png"), accum_plt, width = 5, height = 4)
 
