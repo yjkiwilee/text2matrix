@@ -49,7 +49,7 @@ fail_df <- tibble(
 
 # Method names
 method_names <- c("accum", "accum_tab", "accum_f")
-method_list <- lapply(seq_along(accum_charlens), function(i) { rep(mode_names[i], length(accum_charlens[[i]])) })
+method_list <- lapply(seq_along(accum_charlens), function(i) { rep(method_names[i], length(accum_charlens[[i]])) })
 
 # Species IDs
 id_list <- lapply(accum_charlens, function(charlens) { seq(ifelse(is.na(charlens[[1]]), 0, 1), length.out = length(charlens)) })
