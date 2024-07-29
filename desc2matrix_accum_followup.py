@@ -307,7 +307,7 @@ def desc2charjson_followup(sys_prompt, prompt, f_prompt, desc, chars, client, mo
     omissions = get_omissions(desc, init_char_json)
 
     # Build the follow-up prompt
-    followup_prompt = f_prompt.replace('[DESCRIPTION]', desc).replace('[MISSING_WORDS]', ', '.join(sorted(omissions)))
+    followup_prompt = f_prompt.replace('[DESCRIPTION]', desc).replace('[MISSING_WORDS]', ', '.join(sorted(omissions))).replace('[CHARACTER_LIST]', ', '.join(chars))
 
     # Generate response using the follow-up prompt
     followup_resp = client.chat(model = model, stream = False, messages = [
