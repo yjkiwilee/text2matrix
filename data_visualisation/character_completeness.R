@@ -103,3 +103,19 @@ prop_given_histplots <- ggplot(compare_merged_df, aes(x = prop_given_in_actual))
   theme_bw()
 prop_given_histplots
 ggsave(here::here("figures/prop_chars_recovered.png"), prop_given_histplots, width = 5, height = 6)
+
+# Plot proportions of output traits that were in the provided trait list
+
+prop_actual_histplots <- ggplot(compare_merged_df, aes(x = prop_actual_in_given)) +
+  geom_histogram(binwidth = 0.05, fill = "#ffffff", color = "#000000", boundary = 0) +
+  geom_vline(data = ddply(compare_merged_df, "method", summarize, med_prop = median(prop_actual_in_given, na.rm = TRUE)),
+             aes(xintercept = med_prop), linetype = "dashed") +
+  facet_wrap(~ method, ncol = 1, labeller = labeller(method = method_lab)) +
+  scale_x_continuous(breaks = seq(0, 1, by = 0.1)) +
+  labs(
+    x = "Proportion of characteristics in the output JSON\nthat were actually given in the character list",
+    y = "Count"
+  ) +
+  theme_bw()
+prop_actual_histplots
+ggsave(here::here("figures/prop_chars_actual.png"), prop_actual_histplots, width = 5, height = 6)
