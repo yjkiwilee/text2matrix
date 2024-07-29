@@ -113,7 +113,7 @@ prop_actual_histplots <- ggplot(compare_merged_df, aes(x = prop_actual_in_given)
   facet_wrap(~ method, ncol = 1, labeller = labeller(method = method_lab)) +
   scale_x_continuous(breaks = seq(0, 1, by = 0.1)) +
   labs(
-    x = "Proportion of characteristics in the output JSON\nthat were actually given in the character list",
+    x = "Proportion of characteristics in the output JSON\nthat were originally given in the character list",
     y = "Count"
   ) +
   theme_bw()
