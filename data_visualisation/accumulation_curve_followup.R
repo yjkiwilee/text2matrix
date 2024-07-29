@@ -5,51 +5,39 @@
 pacman::p_load("tidyverse", "here", "jsonlite", "ggVennDiagram", "plotly", "ggwordcloud", "scales")
 
 # Load json
-# Data from desc2matrix_accum.py, which populates the initial character
-# list by asking the prompt from desc2matrix.py with the first species description
-accum_dat <- read_json(here::here("../json_outputs/accum_out_800sp.json"))
-# Data from desc2matrix_accum_tab.py, which populates the initial character
-# list by asking the LLM to tabulate the characteristics from the first three species descriptions
-accum_tab_dat <- read_json(here::here("../json_outputs/accum_tab_out_800sp.json"))
-# Data from desc2matrix_accum_followup.py, which is built upon desc2matrix_accum_tab.py
-# but asks a 'follow-up question' including words that were omitted from the original description
-# to increase trait coverage
-accum_f_dat <- read_json(here::here("../json_outputs/accum_followup_out_800sp.json"))
+# Data from desc2matrix_accum_followup.py with default settings
+accum_dat <- read_json(here::here("../json_outputs/accum_followup_out_800sp.json"))
+# Data from the same script with larger context window size (see file for metadata)
+accum_lc_dat <- read_json(here::here("../json_outputs/accum_f_out_largerctx_800sp.json"))
+
+# List containing the data
+accum_dats <- list(
+  accum = accum_dat,
+  accum_lc = accum_lc_dat
+)
 
 # ===== Generate accumulation curve =====
 
 # Get charlist length histories
-accum_charlens <- list(
-  c(NA, accum_dat$charlist_len_history), # Insert NA because accum_charlen lacks the 'initial' charlist from tabulation
-  accum_tab_dat$charlist_len_history,
-  accum_f_dat$charlist_len_history
-)
+accum_charlens <- lapply(accum_dats, function(accum_d) { accum_d$charlist_len_history })
 
 # Get incidences of failures
+accum_failures <- lapply(accum_dats, function(accum_d) {
+  sapply(seq_along(accum_d$data), function(spdat_id) {
+    spdat <- accum_d$data[[spdat_id]]
+    if(spdat$status == "success") { NA }
+    else { spdat_id }
+  })
+})
 
-accum_failures <- sapply(seq_along(accum_dat$data), function(spdat_id) {
-  spdat <- accum_dat$data[[spdat_id]]
-  if(spdat$status == "success") { NA }
-  else { spdat_id + 1 } # + 1 to account for NA
-})
-accum_tab_failures <- sapply(seq_along(accum_tab_dat$data), function(spdat_id) {
-  spdat <- accum_tab_dat$data[[spdat_id]]
-  if(spdat$status == "success") { NA }
-  else { spdat_id }
-})
-accum_f_failures <- sapply(seq_along(accum_f_dat$data), function(spdat_id) {
-  spdat <- accum_f_dat$data[[spdat_id]]
-  if(spdat$status == "success") { NA }
-  else { spdat_id }
-})
 fail_df <- tibble(
-  sp_id = c(NA, accum_failures, NA, accum_tab_failures, NA, accum_f_failures), # First is NA, corresponding to the missing initial tabulation
+  sp_id = do.call(c, lapply(accum_failures, function(accum_fail_ids) { c(NA, accum_fail_ids) })), # First is NA, corresponding to the missing initial tabulation
   charlen = do.call(c, unlist(accum_charlens, recursive=FALSE))
 )
 
 # Method names
-method_names <- c("accum", "accum_tab", "accum_f")
-method_list <- lapply(seq_along(accum_charlens), function(i) { rep(mode_names[i], length(accum_charlens[[i]])) })
+method_names <- c("accum", "accum_lc")
+method_list <- lapply(seq_along(accum_charlens), function(i) { rep(method_names[i], length(accum_charlens[[i]])) })
 
 # Species IDs
 id_list <- lapply(accum_charlens, function(charlens) { seq(ifelse(is.na(charlens[[1]]), 0, 1), length.out = length(charlens)) })
@@ -72,15 +60,14 @@ accum_plt <- ggplot() +
     color = "Method",
   ) +
   scale_color_brewer(palette = "Dark2", labels = c(
-    "accum" = "Without initial tabulation",
-    "accum_tab" = "With initial tabulation",
-    "accum_f" = "With initial tabulation and followup question"),
-    breaks = c("accum", "accum_tab", "accum_f")) +
+    "accum" = "Follow-up",
+    "accum_lc" = "Follow-up with larger context"),
+    breaks = c("accum", "accum_lc")) +
   theme_bw() +
   theme(legend.position = "bottom") +
   guides(color = guide_legend(nrow = 3, byrow = FALSE))
 accum_plt
-ggsave(here::here("figures/accum_curve_800.png"), accum_plt, width = 5, height = 4)
+ggsave(here::here("figures/accum_curve_800_followup.png"), accum_plt, width = 5, height = 4)
 
 # ===== Inspect final trait list for the runs =====
 
