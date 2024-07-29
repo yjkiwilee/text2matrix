@@ -481,7 +481,7 @@ def main(sys_prompt, tab_prompt, prompt, f_prompt):
         'f_prompt': f_prompt,
         'initspnum': args.initspnum,
         'params': params,
-        'mode': 'desc2json_accum_tab',
+        'mode': 'desc2json_accum_followup',
         'charlist_len_history': [],
         'charlist_history': [],
         'data': []
