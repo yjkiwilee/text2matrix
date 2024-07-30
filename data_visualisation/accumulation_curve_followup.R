@@ -9,11 +9,17 @@ pacman::p_load("tidyverse", "here", "jsonlite", "ggVennDiagram", "plotly", "ggwo
 accum_dat <- read_json(here::here("../json_outputs/accum_followup_out_800sp.json"))
 # Data from the same script with larger context window size (see file for metadata)
 accum_lc_dat <- read_json(here::here("../json_outputs/accum_f_out_largerctx_800sp.json"))
+# Data from the same script with character list provided in the follow-up question
+accum_lf_dat <- read_json(here::here("../json_outputs/accum_f_out_listinfollowup_800sp.json"))
+# Data from the same script with both treatments
+accum_lclf_dat <- read_json(here::here("../json_outputs/accum_f_out_largerctx_and_listinfollowup_800sp.json"))
 
 # List containing the data
 accum_dats <- list(
   accum = accum_dat,
-  accum_lc = accum_lc_dat
+  accum_lc = accum_lc_dat,
+  accum_lf = accum_lf_dat,
+  accum_lclf = accum_lclf_dat
 )
 
 # ===== Generate accumulation curve =====
@@ -36,7 +42,7 @@ fail_df <- tibble(
 )
 
 # Method names
-method_names <- c("accum", "accum_lc")
+method_names <- c("accum", "accum_lc", "accum_lf", "accum_lclf")
 method_list <- lapply(seq_along(accum_charlens), function(i) { rep(method_names[i], length(accum_charlens[[i]])) })
 
 # Species IDs
@@ -61,8 +67,11 @@ accum_plt <- ggplot() +
   ) +
   scale_color_brewer(palette = "Dark2", labels = c(
     "accum" = "Follow-up",
-    "accum_lc" = "Follow-up with larger context"),
-    breaks = c("accum", "accum_lc")) +
+    "accum_lc" = "Larger context",
+    "accum_lf" = "With list in the follow-up question",
+    "accum_lclf" = "Larger context and with list in the follow-up question"
+    ),
+    breaks = c("accum", "accum_lc", "accum_lf", "accum_lclf")) +
   theme_bw() +
   theme(legend.position = "bottom") +
   guides(color = guide_legend(nrow = 2, byrow = FALSE))
@@ -76,8 +85,9 @@ ggsave(here::here("figures/accum_curve_800_followup.png"), accum_plt, width = 5,
 # Gather charlist histories
 accum_charhist <- list(
   accum_dat$charlist_history,
-  accum_tab_dat$charlist_history,
-  accum_f_dat$charlist_history
+  accum_lc_dat$charlist_history,
+  accum_lf_dat$charlist_history,
+  accum_lclf_dat$charlist_history
 )
 
 # Extract final charlists
@@ -85,11 +95,12 @@ final_chars <- lapply(accum_charhist, function(charhist) {
   final_charlist <- unlist(charhist[[length(charhist)]])
   unname(sapply(final_charlist, function(char) { sub("color", "colour", char, ignore.case = TRUE) })) # Make spelling variants uniform
 })
-names(final_chars) <- c("accum", "accum_tab", "accum_f")
+names(final_chars) <- c("accum", "accum_lc", "accum_lf", "accum_lclf")
 
-# paste(final_chars[["accum"]], collapse = ", ")
-# paste(final_chars[["accum_tab"]], collapse = ", ")
-# paste(final_chars[["accum_f"]], collapse = ", ")
+paste(final_chars[["accum"]], collapse = ", ")
+paste(final_chars[["accum_lc"]], collapse = ", ")
+paste(final_chars[["accum_lf"]], collapse = ", ")
+paste(final_chars[["accum_lclf"]], collapse = ", ")
 
 # Draw Venn diagram of characteristics
 char_venn <- ggVennDiagram(final_chars,
