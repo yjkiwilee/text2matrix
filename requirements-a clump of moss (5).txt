@@ -1,8 +1,0 @@
-pandas
-python-dwca-reader
-ollama
-nltk
-argparse
-inflect
-langchain
-langchain-ollama
