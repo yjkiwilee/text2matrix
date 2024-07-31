@@ -18,8 +18,13 @@ wcharlist_dats <- list(
 
 # ===== Generate accumulation curve =====
 
-# Get charlist length histories
-wcharlist_charlens <- lapply(wcharlist_dats, function(wcharlist_d) { wcharlist_d$charlist_len_history })
+# Get output character list length histories
+wcharlist_charlens <- lapply(wcharlist_dats, function(wcharlist_d) {
+  lapply(wcharlist_d$data, function(species) {
+    if(is.null(species$char_json)) { NA }
+    else { as.numeric(length(species$char_json)) }
+  })
+})
 
 # Get incidences of failures
 wcharlist_failures <- lapply(wcharlist_dats, function(wcharlist_d) {
@@ -31,8 +36,8 @@ wcharlist_failures <- lapply(wcharlist_dats, function(wcharlist_d) {
 })
 
 fail_df <- tibble(
-  sp_id = do.call(c, lapply(wcharlist_failures, function(wcharlist_fail_ids) { c(NA, wcharlist_fail_ids) })), # First is NA, corresponding to the missing initial tabulation
-  charlen = do.call(c, unlist(wcharlist_charlens, recursive=FALSE))
+  sp_id = do.call(c, wcharlist_failures),
+  charlen = do.call(c, unlist(wcharlist_charlens, recursive = FALSE))
 )
 
 # Method names
@@ -40,7 +45,7 @@ method_names <- c("wcharlist", "wcharlist_f")
 method_list <- lapply(seq_along(wcharlist_charlens), function(i) { rep(method_names[i], length(wcharlist_charlens[[i]])) })
 
 # Species IDs
-id_list <- lapply(wcharlist_charlens, function(charlens) { seq(ifelse(is.na(charlens[[1]]), 0, 1), length.out = length(charlens)) })
+id_list <- lapply(wcharlist_charlens, function(charlens) { seq(1, length.out = length(charlens)) })
 sp_ids <- unlist(id_list)
 
 # Build tibble
@@ -50,20 +55,21 @@ wcharlist_df <- tibble(
   method = unlist(method_list)
 )
 
-# Plot accumulation curve
-wcharlist_plt <- ggplot() +
-  geom_line(data = wcharlist_df, aes(x = sp_id, y = charlen, color = method)) +
-  geom_point(data = fail_df, aes(x = sp_id, y = charlen), shape = 4) +
+wcharlist_df
+
+# Plot histogram of the distribution of the length of characteristic list obtained
+method_lab <- c("Constant trait list provided", "Constant trait list provided with follow-up question")
+names(method_lab) <- c("wcharlist", "wcharlist_f")
+
+wcharlist_plt <- ggplot(wcharlist_df, aes(x = charlen)) +
+  geom_vline(xintercept = 89, linetype = "dashed") +
+  geom_histogram(binwidth = 5, fill = "#ffffff", color = "#000000", boundary = 0) +
   labs(
-    x = "Number of species processed",
-    y = "Number of characteristics",
-    color = "Method",
+    title = "The number of characteristics in the output across successful runs",
+    x = "Number of output characteristics",
+    y = "Count"
   ) +
-  scale_color_brewer(palette = "Dark2", labels = c(
-    "wcharlist" = "Constant trait list provided",
-    "wcharlist_f" = "Constant trait list provided with follow-up questions"
-  ),
-  breaks = c("wcharlist", "wcharlist_f")) +
+  facet_wrap(~ method, ncol = 1, labeller = labeller(method = method_lab), scales = "free_y") +
   theme_bw() +
   theme(legend.position = "bottom") +
   guides(color = guide_legend(nrow = 2, byrow = FALSE))
