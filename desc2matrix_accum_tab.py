@@ -1,10 +1,9 @@
 import argparse
 import json
 from ollama import Client
-import os
 import pandas as pd
-import time
 import copy
+import process_descs # Functions for converting species descriptions into standardised output
 
 # ===== Default prompts =====
 
@@ -103,142 +102,6 @@ Here are the descriptions that you should transcribe:
 
 [DESCRIPTIONS]
 """
-
-# ===== Functions =====
-
-# Check JSON output for structural validity and do some cleanup
-def regularise_charjson(chars):
-    # Return false if the object is not a list; we expect a list of {'characteristic':'', 'value':''}
-    if not isinstance(chars, list):
-        return False
-
-    new_dict = []
-
-    # Go through elements
-    for char in chars:
-        # Return false if the keys are different from what we expect
-        if set(char.keys()) != {'characteristic', 'value'}:
-            return False
-        
-        # Skip if value is None
-        if char['value'] == None:
-            continue
-        
-        # Convert value to string
-        char['value'] = str(char['value'])
-
-        # Append characteristic to new dict
-        new_dict.append(char)
-    
-    # Return the new dict
-    return new_dict
-
-# Check character table (i.e. output of get_char_table) for structural validity and do some cleanup
-def regularise_table(table, spids):
-    # Return false if the object is not a list; we expect a list of {'characteristic':'', 'values': {'spid1': '', 'spid2': '', ...}}
-    if not isinstance(table, list):
-        return False
-
-    new_table = []
-
-    # Go through elements
-    for char in table:
-        # Return false if the keys are different from what we expect
-        if set(char.keys()) != {'characteristic', 'values'}:
-            return False
-        
-        # Return false if the values are badly structured
-        if set(char['values'].keys()) != set(spids):
-            return False
-        
-        # Convert values to string
-        char['values'] = {spid: str(val) for spid, val in char['values'].items()}
-
-        # Append characteristic to new dict
-        new_table.append(char)
-    
-    # Return the new table
-    return new_table
-
-def desc2charjson_wchars(sys_prompt, prompt, desc, chars, client, model = 'desc2matrix', silent = False):
-    # Pass descriptions to LLM for response
-    char_json = {}
-
-    start = 0
-    if not silent:
-        print('desc2json: processing... ', end = '', flush = True)
-        start = time.time()
-
-    # Generate response while specifying system prompt
-    resp = client.generate(model = model,
-                                prompt = prompt.replace('[DESCRIPTION]', desc).replace('[CHARACTER_LIST]', ', '.join(chars)),
-                                system = sys_prompt)['response']
-
-    # Attempt to parse prompt as JSON
-    try:
-        resp_json = json.loads(resp.replace("'", '"')) # Replace ' with "
-        # Check validity / regularise output
-        reg_resp_json = regularise_charjson(resp_json)
-        if reg_resp_json != False:
-            char_json = {'status': 'success', 'data': reg_resp_json} # Save parsed JSON with status
-        else:
-            if not silent:
-                print('ollama output is JSON but is structured badly... ', end = '', flush = True)
-            char_json = {'status': 'bad_structure', 'data': str(resp_json)} # Save string with status
-    except json.decoder.JSONDecodeError as decode_err: # If LLM returns bad string
-        if not silent:
-            print('ollama returned bad JSON string... ', end = '', flush = True)
-        char_json = {'status': 'invalid_json', 'data': resp} # Save string with status
-    
-    if not silent:
-        elapsed_t = time.time() - start
-        print(f'done in {elapsed_t:.2f} s!')
-    
-    # Return characteristics as array of dict
-    return char_json
-
-# Generate a structured 'table' of character JSON from the given species descriptions
-def get_char_table(sys_prompt, prompt, spids, descs, client, model = 'desc2matrix', silent = False):
-    # Variable to store the output JSON 'table'
-    tab_json = {}
-
-    # Progress log
-    start = 0
-    if not silent:
-        print('get_table: processing... ', end = '', flush = True)
-        start = time.time()
-
-    # Build description string
-    desc_str = '\n\n'.join(['Species ID: {}\n\nSpecies description:\n{}'.format(spid, desc) for spid, desc in zip(spids, descs)])
-
-    # Generate response while specifying system prompt
-    resp = client.generate(model = model,
-                                prompt = prompt.replace('[DESCRIPTIONS]', desc_str),
-                                system = sys_prompt)['response']
-    
-    # Attempt to parse to JSON
-    try:
-        resp_json = json.loads(resp.replace("'", '"')) # Replace ' with "
-        # Check validity / regularise output
-        reg_resp_json = regularise_table(resp_json, spids)
-        if reg_resp_json != False:
-            tab_json = {'status': 'success', 'data': reg_resp_json} # Save parsed JSON with status
-        else:
-            if not silent:
-                print('ollama output is JSON but is structured badly... ', end = '', flush = True)
-            tab_json = {'status': 'bad_structure', 'data': str(resp_json)} # Save string with status
-    except json.decoder.JSONDecodeError as decode_err: # If LLM returns bad string
-        if not silent:
-            print('ollama returned bad JSON string... ', end = '', flush = True)
-        tab_json = {'status': 'invalid_json', 'data': resp} # Save string with status
-
-    # Elapsed time log
-    if not silent:
-        elapsed_t = time.time() - start
-        print(f'done in {elapsed_t:.2f} s!')
-
-    # Return table of characteristics
-    return tab_json
 
 def main(sys_prompt, tab_prompt, prompt):
     # Create the parser
@@ -351,7 +214,7 @@ def main(sys_prompt, tab_prompt, prompt):
     tabdf = descdf.iloc[0:args.initspnum]
 
     # Extract table of characteristics
-    chars_tab = get_char_table(sys_prompt, tab_prompt, tabdf['coreid'].tolist(), descs, client, silent = args.silent == True)
+    chars_tab = process_descs.get_char_table(sys_prompt, tab_prompt, tabdf['coreid'].tolist(), descs, client, silent = args.silent == True)
 
     # Terminate the program if parsing has failed
     if(chars_tab['status'] != 'success'):
@@ -373,7 +236,7 @@ def main(sys_prompt, tab_prompt, prompt):
         chars = charlist_history[rowid] # NOT rowid - 1 since there is already one element in the list
 
         # Generate output with predetermined character list
-        char_json = desc2charjson_wchars(sys_prompt, prompt, desc, chars, client, silent = args.silent == True)
+        char_json = process_descs.desc2charjson(sys_prompt, prompt, desc, client, chars = chars, silent = args.silent == True)
 
         if(char_json['status'] == 'success'): # If run succeeded
             # Extract character list

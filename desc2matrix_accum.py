@@ -1,10 +1,9 @@
 import argparse
 import json
 from ollama import Client
-import os
 import pandas as pd
-import time
 import copy
+import process_descs # Functions for converting species descriptions into standardised output
 
 # ===== Default prompts =====
 
@@ -87,110 +86,6 @@ Here is the description that you should transcribe:
 
 [DESCRIPTION]
 """
-
-# ===== Functions =====
-
-# Check JSON output for structural validity and do some cleanup
-def regularise_charjson(chars):
-    # Return false if the object is not a list; we expect a list of {'characteristic':'', 'value':''}
-    if not isinstance(chars, list):
-        return False
-
-    new_dict = []
-
-    # Go through elements
-    for char in chars:
-        # Return false if the keys are different from what we expect
-        if set(char.keys()) != {'characteristic', 'value'}:
-            return False
-        
-        # Skip if value is None
-        if char['value'] == None:
-            continue
-        
-        # Convert value to string
-        char['value'] = str(char['value'])
-
-        # Append characteristic to new dict
-        new_dict.append(char)
-    
-    # Return the new dict
-    return new_dict
-
-# Convert a single description to a JSON
-def desc2charjson(sys_prompt, prompt, desc, client, model = 'desc2matrix', silent = False):
-    # Pass descriptions to LLM for response
-    char_json = {}
-
-    start = 0
-    if not silent:
-        print('desc2json: processing... ', end = '', flush = True)
-        start = time.time()
-
-    # Generate response while specifying system prompt
-    resp = client.generate(model = model,
-                                prompt = prompt.replace('[DESCRIPTION]', desc),
-                                system = sys_prompt)['response']
-
-    # Attempt to parse prompt as JSON
-    try:
-        resp_json = json.loads(resp.replace("'", '"')) # Replace ' with "
-        # Check validity / regularise output
-        reg_resp_json = regularise_charjson(resp_json)
-        if reg_resp_json != False:
-            char_json = {'status': 'success', 'data': reg_resp_json} # Save parsed JSON with status
-        else:
-            if not silent:
-                print('ollama output is JSON but is structured badly... ', end = '', flush = True)
-            char_json = {'status': 'bad_structure', 'data': str(resp_json)} # Save string with status
-    except json.decoder.JSONDecodeError as decode_err: # If LLM returns bad string
-        if not silent:
-            print('ollama returned bad JSON string... ', end = '', flush = True)
-        char_json = {'status': 'invalid_json', 'data': resp} # Save string with status
-    
-    if not silent:
-        elapsed_t = time.time() - start
-        print(f'done in {elapsed_t:.2f} s!')
-    
-    # Return characteristics as array of dict
-    return char_json
-
-def desc2charjson_wchars(sys_prompt, prompt, desc, chars, client, model = 'desc2matrix', silent = False):
-    # Pass descriptions to LLM for response
-    char_json = {}
-
-    start = 0
-    if not silent:
-        print('desc2json: processing... ', end = '', flush = True)
-        start = time.time()
-
-    # Generate response while specifying system prompt
-    resp = client.generate(model = model,
-                                prompt = prompt.replace('[DESCRIPTION]', desc).replace('[CHARACTER_LIST]', ', '.join(chars)),
-                                system = sys_prompt)['response']
-
-    # Attempt to parse prompt as JSON
-    try:
-        resp_json = json.loads(resp.replace("'", '"')) # Replace ' with "
-        # Check validity / regularise output
-        reg_resp_json = regularise_charjson(resp_json)
-        if reg_resp_json != False:
-            char_json = {'status': 'success', 'data': reg_resp_json} # Save parsed JSON with status
-        else:
-            if not silent:
-                print('ollama output is JSON but is structured badly... ', end = '', flush = True)
-            char_json = {'status': 'bad_structure', 'data': str(resp_json)} # Save string with status
-    except json.decoder.JSONDecodeError as decode_err: # If LLM returns bad string
-        if not silent:
-            print('ollama returned bad JSON string... ', end = '', flush = True)
-        char_json = {'status': 'invalid_json', 'data': resp} # Save string with status
-    
-    if not silent:
-        elapsed_t = time.time() - start
-        print(f'done in {elapsed_t:.2f} s!')
-    
-    # Return characteristics as array of dict
-    return char_json
 
 def main(sys_prompt, init_prompt, prompt):
     # Create the parser
@@ -304,13 +199,13 @@ def main(sys_prompt, init_prompt, prompt):
         # Generate output for one species
         if rowid == 0 or len(charlist_history[rowid - 1]) == 0: # If this is the first species or the first species to succeed
             # Generate output without predetermined character list
-            char_json = desc2charjson(sys_prompt, init_prompt, desc, client, silent = args.silent == True)
+            char_json = process_descs.desc2charjson(sys_prompt, init_prompt, desc, client, silent = args.silent == True)
         else: # Otherwise
             # Get the list of characters from the last row
             chars = charlist_history[rowid - 1]
 
             # Generate output with predetermined character list
-            char_json = desc2charjson_wchars(sys_prompt, prompt, desc, chars, client, silent = args.silent == True)
+            char_json = process_descs.desc2charjson(sys_prompt, prompt, desc, client, chars = chars, silent = args.silent == True)
 
         if(char_json['status'] == 'success'): # If run succeeded
             # Extract character list
