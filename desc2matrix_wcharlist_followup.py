@@ -1,0 +1,408 @@
+import argparse
+import json
+from ollama import Client
+import nltk
+import pandas as pd
+import time
+import re
+import inflect
+import copy
+
+nltk.download('punkt')
+nltk.download('stopwords')
+nltk.download('averaged_perceptron_tagger')
+from nltk.corpus import stopwords
+
+inf = inflect.engine()
+# Turn on 'classical' plurals as they are likely to occur in the dataset
+inf.classical()
+
+# ===== Default prompts =====
+
+global_sys_prompt = """
+You are a diligent robot assistant made by a botanist. You have expert knowledge of botanical terminology.
+Your goal is to transcribe the given botanical description(s) of plant characteristics into a valid JSON output.
+Your answer must be as complete and accurate as possible.
+You must answer in valid JSON, with no other text.
+"""
+
+# [DESCRIPTION] in the prompt text is replaced by the plant description.
+# [CHARACTER_LIST] in the prompt text is replaced by the list of characteristics to extract.
+global_prompt = """
+You are given a botanical description of a plant species taken from published floras.
+You extract the types of characteristics mentioned in the description and their corresponding values, and transcribe them into JSON.
+Your answer should be an array of JSON with name of the characteristic and the corresponding value formatted as follows: {"characteristic":(name of characteristic), "value":(value of characteristic)}.
+(name of characteristic) should be substituted with the name of the characteristic, and (value of characteristic) should be substituted with the corresponding value.
+The name of every characteristic must be written in lowercase.
+Make sure that you surround your final answer with square brackets [ and ] so that it is a valid array.
+Do not include any text (e.g. introductory text) other than the valid array of JSON.
+
+Follow the instructions below.
+
+1. Transcribe all the mentioned characteristics relating to the whole plant, such as growth form, reproduction, plant height, and branching.
+
+2. Iterate through every mentioned organs (e.g. leaf and other leaf-like organs, stem, flower, inflorescence, fruit, seed and root) and parts of organs (e.g. stipule, anther, ovary) and transcribe their corresponding characteristics.
+You must transcribe the length, width, shape, color, surface texture, surface features, and arrangement of each organ or part of an organ.
+Each of these characteristics must be separate. The name of every characteristic relating to an organ or a part of an organ must be formatted as follows: "(name of organ or part of organ) (type of characteristic)", where (name of organ or part of organ) should be substituted with the name of the organ or part of the organ, and (type of characteristic) should be substituted with the specific type of characteristic.
+
+In the final output JSON, try to include all words that appear in the given description, as long as they carry information about the plant species.
+Do not make up characteristics that are not mentioned in the description.
+
+Here are some examples of descriptions and their correponding transcription in JSON:
+
+Sentence: "Fruit: ovoid berry, 10-12 mm wide, 13-15 mm long, yellow to yellow-green throughout."
+JSON: {"characteristic": "fruit shape", "value": "ovoid"}, {"characteristic": "fruit type", "value": "berry"}, {"characteristic": "fruit width", "value": "10-12 mm"}, {"characteristic": "fruit length", "value": "13-15 mm"}, {"characteristic": "fruit color", "value": "yellow to yellow-green"}
+
+Sentence: "Perennial dioecious herbs 60-100cm tall. Leaves alternate, green and glabrous adaxially and hirsute with white to greyish hair abaxially."
+JSON: {"characteristic": "life history", "value": "perennial"}, {"characteristic": "reproduction", "value": "dioecious"}, {"characteristic": "growth form", "value": "herb"}, , {"characteristic": "plant height", "value": "60-100 cm"}, {"characteristic": "leaf arrangement", "value": "alternate"}, {"characteristic": "leaf adaxial colour", "value": "green"}, {"characteristic": "leaf adaxial texture", "value": "glabrous"}, {"characteristic": "leaf abaxial texture", "value": "hirsute"}, {"characteristic": "leaf abaxial hair colour", "value": "white to greyish"}
+
+Include the following list of characteristics in your output. Use the name of the characteristic as given in this list. If you can't find one or more of these characteristics in the given description, put "NA" as the corresponding value. If you find a characteristic in the given description that is not in this list, add that characteristic in your response.
+
+[CHARACTER_LIST]
+
+Here is the description that you should transcribe:
+
+[DESCRIPTION]
+"""
+
+# [DESCRIPTION] and [MISSING_WORDS] are each replaced by the plant description and the list of missing words.
+global_followup_prompt = """
+Please generate a new, more complete JSON response in the same format as before.
+
+Here are the words in the original description that you've omitted in your JSON response:
+[MISSING_WORDS]
+
+Some of these are broken parts of words that you have included in your final response. For example, the list might have the word 'seudostipule' when you have 'pseudostipule' in your JSON. Ignore such cases.
+Of the words in the above list, try to include all words that contain information about a plant trait that you have genuinely omitted.
+
+Remember to include the following list of characteristics in your output. Use the name of the characteristic as given in this list. If you can't find one or more of these characteristics in the given description, put "NA" as the corresponding value. If you find a characteristic in the given description that is not in this list, add that characteristic in your response.
+[CHARACTER_LIST]
+
+Do not include any text (e.g. introductory text) other than the valid array of JSON.
+
+Here is the original description that you should transcribe:
+[DESCRIPTION]
+"""
+
+# ===== Data clean-up functions =====
+
+# Check JSON output for structural validity and do some cleanup
+def regularise_charjson(chars):
+    # Return false if the object is not a list; we expect a list of {'characteristic':'', 'value':''}
+    if not isinstance(chars, list):
+        return False
+
+    new_dict = []
+
+    # Go through elements
+    for char in chars:
+        # Return false if the keys are different from what we expect
+        if set(char.keys()) != {'characteristic', 'value'}:
+            return False
+        
+        # Skip if value is None
+        if char['value'] == None:
+            continue
+        
+        # Convert value to string
+        char['value'] = str(char['value'])
+
+        # Append characteristic to new dict
+        new_dict.append(char)
+    
+    # Return the new dict
+    return new_dict
+
+# ===== NLP functions =====
+
+# Get the set of words given a string (taken from desc2matrix_qc.py)
+def get_word_set(descstr):
+    # Gather stop words
+    stop_words = set(stopwords.words('english'))
+
+    # Insert whitespace before/after period, comma, colon, semicolon and brackets
+    descstr = re.sub(r'[^0-9] *\. *[^0-9]', '. ', descstr) # Do not substitute periods in floating-point numbers
+    descstr = re.sub(r'[^0-9] *\. *[0-9]', '. ', descstr) # Substitute periods next to numbers if either side is not a number
+    descstr = re.sub(r'[0-9] *\. *[^0-9]', '. ', descstr)
+    descstr = re.sub(r' *, *', ', ', descstr)
+    descstr = re.sub(r' *: *', ': ', descstr)
+    descstr = re.sub(r' *; *', '; ', descstr)
+    descstr = re.sub(r' *\( *', ' (', descstr)
+    descstr = re.sub(r' *\) *', ') ', descstr)
+
+    # Collapse numeric ranges to single 'word' to check for presence
+    descstr = re.sub(r'([0-9]) *- *([0-9])', r'\1-\2', descstr)
+
+    # Tokenise words, remove stop words, convert to lowercase
+    descset = set([w.lower() for w in nltk.word_tokenize(descstr) if not w.lower() in stop_words])
+
+    # Remove punctuations & brackets
+    descset = descset.difference({'.', ',', ':', ';', '“', '”', '"', "'", "(", ")"})
+
+    # Singularise nouns (duplicates will automatically be merged since this is a set)
+    descset_n = set([w for w in descset
+                     if nltk.pos_tag([w])[0][1] in ['NN', 'NNS', 'NNPS', 'NNP']])
+    descset_sing_n = set([w if inf.singular_noun(w) == False else inf.singular_noun(w) # inflection may determine that the word is not a noun, in which case use the original word
+                          for w in descset_n])
+    descset = descset.difference(descset_n).union(descset_sing_n) # Remove nouns and add back singulars
+
+    # Return word set
+    return descset
+
+# Identify omitted words in char_json given the original description
+def get_omissions(desc, char_json):
+    # Compile names of characteristics and their corresponding values to a single string
+    compiled_charstr = '\n'.join(['{}: {}'.format(char['characteristic'], char['value']) for char in char_json])
+
+    # Feed string into get_word_set to get the set of words
+    out_words = get_word_set(compiled_charstr)
+    # Feed the original description into get_word_set to get the set of words
+    desc_words = get_word_set(desc)
+
+    # Determine omitted words
+    omissions = desc_words.difference(out_words)
+
+    # Return set of omitted words
+    return omissions
+
+# ===== LLM functions =====
+
+def desc2charjson_wchars(sys_prompt, prompt, desc, chars, client, model = 'desc2matrix', silent = False):
+    # Pass descriptions to LLM for response
+    char_json = {}
+
+    start = 0
+    if not silent:
+        print('desc2json: processing... ', end = '', flush = True)
+        start = time.time()
+
+    # Generate response while specifying system prompt
+    resp = client.generate(model = model,
+                                prompt = prompt.replace('[DESCRIPTION]', desc).replace('[CHARACTER_LIST]', ', '.join(chars)),
+                                system = sys_prompt)['response']
+
+    # Attempt to parse prompt as JSON
+    try:
+        resp_json = json.loads(resp.replace("'", '"')) # Replace ' with "
+        # Check validity / regularise output
+        reg_resp_json = regularise_charjson(resp_json)
+        if reg_resp_json != False:
+            char_json = {'status': 'success', 'data': reg_resp_json} # Save parsed JSON with status
+        else:
+            if not silent:
+                print('ollama output is JSON but is structured badly... ', end = '', flush = True)
+            char_json = {'status': 'bad_structure', 'data': str(resp_json)} # Save string with status
+    except json.decoder.JSONDecodeError as decode_err: # If LLM returns bad string
+        if not silent:
+            print('ollama returned bad JSON string... ', end = '', flush = True)
+        char_json = {'status': 'invalid_json', 'data': resp} # Save string with status
+    
+    if not silent:
+        elapsed_t = time.time() - start
+        print(f'done in {elapsed_t:.2f} s!')
+    
+    # Return characteristics as array of dict
+    return char_json
+
+# 'Follow-up' version of desc2charjson_wchars where an additional prompt (f_prompt) is given to ensure missing words are included
+def desc2charjson_followup(sys_prompt, prompt, f_prompt, desc, chars, client, model = 'desc2matrix', silent = False):
+    # Variable to store the final char_json
+    char_json = {}
+
+    # Variable to store the initial raw char_json
+    init_raw_char_json = None
+
+    # Generate initial response using desc2charjson_single
+    init_raw_char_json = desc2charjson_wchars(sys_prompt, prompt, desc, chars, client, model, silent)
+
+    # Skip if JSON output was invalid or badly structured
+    if(init_raw_char_json['status'] != 'success'):
+        # Simply return without follow-up processing
+        return init_raw_char_json
+
+    # Extract the char_json itself
+    init_char_json = init_raw_char_json['data']
+
+    start = 0
+    # Progress log
+    if not silent:
+        print('desc2json_followup: processing... ', end = '', flush = True)
+        start = time.time()
+    
+    # Retrieve omissions
+    omissions = get_omissions(desc, init_char_json)
+
+    # Build the follow-up prompt
+    followup_prompt = f_prompt.replace('[DESCRIPTION]', desc).replace('[MISSING_WORDS]', ', '.join(sorted(omissions))).replace('[CHARACTER_LIST]', ', '.join(chars))
+
+    # Generate response using the follow-up prompt
+    followup_resp = client.chat(model = model, stream = False, messages = [
+        {'role': 'system', 'content': sys_prompt}, 
+        {'role': 'user', 'content': prompt.replace('[DESCRIPTION]', desc)},
+        {'role': 'assistant', 'content': json.dumps(init_char_json, indent=4)},
+        {'role': 'user', 'content': followup_prompt}
+    ])['message']['content']
+
+    # Attempt to parse prompt as JSON
+    try:
+        resp_json = json.loads(followup_resp.replace("'", '"')) # Replace ' with "
+        # Check validity / regularise output
+        reg_resp_json = regularise_charjson(resp_json)
+        if reg_resp_json != False:
+            char_json = {'status': 'success', 'data': reg_resp_json} # Save parsed JSON with status
+        else:
+            if not silent:
+                print('ollama output is JSON but is structured badly... ', end = '', flush = True)
+            char_json = {'status': 'bad_structure_followup', 'data': str(resp_json)} # Save string with status; 'followup' to distinguish it from failure in the first run
+    except json.decoder.JSONDecodeError as decode_err: # If LLM returns bad string
+        if not silent:
+            print('ollama returned bad JSON string... ', end = '', flush = True)
+        char_json = {'status': 'invalid_json_followup', 'data': followup_resp} # Save string with status
+
+    # Progress log
+    if not silent:
+        elapsed_t = time.time() - start
+        print(f'done in {elapsed_t:.2f} s!')
+
+    # Return characteristics as an array of dict
+    return char_json
+
+def main(sys_prompt, prompt, f_prompt):
+    # Create the parser
+    parser = argparse.ArgumentParser(description = 'Extract JSON/dict from description files')
+
+    # Basic I/O arguments
+    parser.add_argument('descfile', type = str, help = 'File containing the descriptions produced by dwca2csv.py')
+    parser.add_argument('charlistfile', type = str, help = 'FIle containing the list of traits to use for extraction')
+    parser.add_argument('outputfile', type = str, help = 'File to write JSON to')
+    parser.add_argument('--desctype', required = True, type = str, help = 'The "type" value used for morphological descriptions in the description file')
+    parser.add_argument('--sysprompt', required = False, type = str, help = 'Text file storing the system prompt')
+    parser.add_argument('--prompt', required = False, type = str, help = 'Text file storing the prompt')
+    parser.add_argument('--fprompt', required = False, type = str, help = 'Text file storing the follow-up prompt')
+    parser.add_argument('--silent', required = False, action = 'store_true', help = 'Suppress output showing job progress')
+    parser.add_argument('--charlistsep', required = False, type = str, default = ',', help = 'Separator character used in charlist file to separate individual trait names')
+
+    # Run configs
+    parser.add_argument('--start', required = False, type = int, default = 0, help = 'Order ID of the species to start transcribing from')
+    parser.add_argument('--spnum', required = False, type = int, help = 'Number of species to process descriptions of. Default behaviour is to process all species present in the file')
+
+    # Model properties
+    parser.add_argument('--model', required = False, type = str, default = 'llama3', help = 'Name of base LLM to use')
+    parser.add_argument('--temperature', required = False, type = float, default = 0.1, help = 'Model temperature between 0 and 1')
+    parser.add_argument('--seed', required = False, type = int, default = 1, help = 'Model seed value')
+    parser.add_argument('--repeatlastn', required = False, type = int, default = 0, help = 'Number of prompts for the model to look back to prevent repetition')
+    parser.add_argument('--numpredict', required = False, type = int, default = 2048, help = 'Maximum number of tokens the model can generate')
+    parser.add_argument('--numctx', required = False, type = int, default = 32768, help = 'Size of context window used to generate the token')
+    parser.add_argument('--topk', required = False, type = int, help = 'A higher value (e.g. 100) will give more diverse answers, while a lower value (e.g. 10) will be more conservative.')
+    parser.add_argument('--topp', required = False, type = float, help = 'A higher value (e.g., 0.95) will lead to more diverse text, while a lower value (e.g., 0.5) will generate more focused and conservative text.')
+    # Parse the arguments
+    args = parser.parse_args()
+
+    # ===== Prompt setup =====
+
+    # Load prompt files if needed
+    if(args.sysprompt != None):
+        with open(args.sysprompt, 'r') as fp:
+            sys_prompt = fp.read()
+    if(args.prompt != None):
+        with open(args.prompt, 'r') as fp:
+            prompt = fp.read()
+    if(args.fprompt != None):
+        with open(args.fprompt, 'r') as fp:
+            f_prompt = fp.read()
+
+    # ===== Read descfile =====
+
+    # Read descfile
+    descdf = pd.read_csv(args.descfile, sep = '\t')
+
+    # Filter morphological descriptions only
+    descdf = descdf.loc[descdf['type'] == args.desctype]
+
+    # Slice according to --start and --spnum options
+    if(args.spnum != None):
+        descdf = descdf[args.start : args.start + args.spnum]
+
+    # Extract descriptions
+    descs = descdf['description'].tolist()
+
+    # ===== Read trait list file =====
+
+    charlist = []
+    with open(args.charlistfile, 'r') as fp:
+        charlist = fp.read().split(args.charlistsep) # Use the separator specified by the --charlistsep option, defaulting to ','
+
+    # ===== Setup Ollama ======
+
+    # Build params
+    params = {
+        'temperature': args.temperature,
+        'seed': args.seed,
+        'repeat_last_n': args.repeatlastn,
+        'num_predict': args.numpredict,
+        'num_ctx': args.numctx,
+        'top_k': args.topk,
+        'top_p': args.topp
+    }
+
+    # Build modelfile
+    modelfile = '{}\n{}'.format(
+        'FROM {}'.format(args.model),
+        '\n'.join(['PARAMETER {} {}'.format(param, value) for param, value in params.items() if value != None])
+    )
+
+    # Make connection to client
+    client = Client(host = 'http://localhost:11434', timeout = 60 * 5)
+
+    # Create model with the specified params
+    client.create(model = 'desc2matrix', modelfile = modelfile)
+
+    # ===== Generate output =====
+
+    # Dictionary to store the final output along with metadata
+    outdict = {
+        'sys_prompt': sys_prompt,
+        'prompt': prompt,
+        'f_prompt': f_prompt,
+        'params': params,
+        'mode': 'desc2json_wcharlist_followup',
+        'charlist': charlist,
+        'data': []
+    }
+
+    # Variable to store extracted characteristic data
+    sp_list = []
+
+    # ===== Extract species traits =====
+
+    # Loop through each species description
+    for rowid, desc in enumerate(descs):
+        # Log number of species if not silent
+        if(args.silent != True):
+            print('Processing {}/{}'.format(rowid + 1, len(descs)))
+
+        # Get the list of characters from the last row
+
+        # Generate output with predetermined character list
+        char_json = desc2charjson_followup(sys_prompt, prompt, f_prompt, desc, charlist, client, silent = args.silent == True)
+
+        # Add entry to sp_list
+        sp_list.append({
+            'coreid': descdf.iloc[rowid]['coreid'],
+            'status': char_json['status'], # Status: one of 'success', 'bad_structure', 'bad_structure_followup', 'invalid_json', 'invalid_json_followup'
+            'original_description': descdf.iloc[rowid]['description'],
+            'char_json': char_json['data'] if char_json['status'] == 'success' else None, # Only use this if parsing succeeded
+            'failed_str': char_json['data'] if char_json['status'] != 'success' else None # Only use this if parsing failed
+        })
+        
+        # Store generated outputs
+        outdict['data'] = sp_list
+
+        # Write output as JSON
+        with open(args.outputfile, 'w') as outfile:
+            json.dump(outdict, outfile)
+
+    
+
+if __name__ == '__main__':
+    main(global_sys_prompt, global_prompt, global_followup_prompt)
