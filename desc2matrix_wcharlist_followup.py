@@ -188,7 +188,7 @@ def main(sys_prompt, prompt, f_prompt):
         # Get the list of characters from the last row
 
         # Generate output with predetermined character list
-        char_json = process_descs.desc2charjson(sys_prompt, prompt, f_prompt, desc, client, chars = charlist, silent = args.silent == True)
+        char_json = process_descs.desc2charjson_followup(sys_prompt, prompt, f_prompt, desc, client, chars = charlist, silent = args.silent == True)
 
         # Add entry to sp_list
         sp_list.append({
