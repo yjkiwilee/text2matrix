@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import List, Optional
 
 from langchain_core.pydantic_v1 import BaseModel, Field
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
@@ -13,12 +13,21 @@ with open('char_lists/list_followup.txt', 'r') as fp:
 
 # ===== Define schema =====
 
-# class Species(BaseModel):
-#     """Characteristics listed in the description of a plant species."""
+class PlantCharacteristic(BaseModel):
+    """A characteristic of a plant species extracted from a botanical description."""
 
-#     characteristics: dict[str,str] = Field(
-#         default = None, description = "Key-value pairs of the name of each characteristic as the key and the corresponding trait value as the value"
-#     )
+    characteristic: str = Field(
+        default = None, description = "Name of the characteristic written in all lowercase; for example, 'fruit color' or 'plant height'"
+    )
+
+    value: str = Field(
+        default = None, description = "The corresponding value for the characteristic; for example, '15-30 cm', '2-5', or 'red'"
+    )
+
+class Species(BaseModel):
+    """Extracted list of characteristics about the provided plant species."""
+
+    trait: List[PlantCharacteristic]
 
 class Person(BaseModel):
     """Information about a person."""
@@ -48,9 +57,6 @@ class Person(BaseModel):
 # """
 # You are a diligent robot assistant made by a botanist. You have expert knowledge of botanical terminology.
 # Your goal is to transcribe the given botanical description of plant characteristics.
-# Specifically, you must extract information about the following characteristics:
-# fruit color, fruit shape, fruit size
-# You must use the names of characteristics exactly as given in the list above.
 # If a characteristics is not mentioned in the description, return null.
 # """,
 #         ),
@@ -79,7 +85,7 @@ prompt = ChatPromptTemplate.from_messages(
 
 # ===== Extract info with Ollama running on HPC =====
 
-llm = ChatOllama(model = "llama3", temperature = 0)
+llm = ChatOllama(model = "mistral-large", temperature = 0)
 struct_llm = llm.with_structured_output(schema = Person)
 print(struct_llm.invoke("Alan Smith is 6 feet tall and has blond hair."))
 
