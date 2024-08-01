@@ -18,7 +18,7 @@ The running list of traits is **only updated if the new list of traits is longer
 
 ## Default prompts
 
-The default prompts are hard-coded in `desc2matrix_accum.py`, but can be imported from a text file using the relevant options (see **Arguments**). The initial prompt and the general extraction prompt must include one or more of the following special 'markers', as is appropriate:
+The default prompts are hard-coded in `common_scripts/default_prompts.py`, but can be imported from a text file using the relevant options (see **Arguments**). The initial prompt and the general extraction prompt must include one or more of the following special 'markers', as is appropriate:
 
 | Marker | In: | Meaning |
 | --- | --- | --- |

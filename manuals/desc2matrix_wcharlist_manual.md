@@ -12,7 +12,7 @@ The names of traits are fed into the LLM run extracting the traits of the subseq
 
 ## Default prompts
 
-The default prompts are hard-coded in `desc2matrix_wcharlist.py`, but can be imported from a text file using the relevant options (see **Arguments**). The prompt must include the following special 'markers':
+The default prompts are hard-coded in `common_scripts/default_prompts.py`, but can be imported from a text file using the relevant options (see **Arguments**). The prompt must include the following special 'markers':
 
 | Marker | Meaning |
 | --- | --- |
