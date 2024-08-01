@@ -6,13 +6,13 @@ pacman::p_load("tidyverse", "here", "jsonlite")
 
 # Load json
 # Data from desc2matrix_wcharlist.py with default settings
-wcharlist_dat <- read_json(here::here("../outputs/wcharlist_out_800sp.json"))
+wcharlist_dat <- read_json(here::here("../outputs/wcharlist_output/wcharlist_out_800sp.json"))
 # Data from desctmatrix_wcharlist_followup.py with default settings
-wcharlist_f_dat <- read_json(here::here("../outputs/wcharlist_followup_out_800sp.json"))
+wcharlist_f_dat <- read_json(here::here("../outputs/wcharlist_output/wcharlist_followup_out_800sp.json"))
 # Data from desc2matrix_wcharlist.py with default settings with shorter trait list
-wcharlist_s_dat <- read_json(here::here("../outputs/wcharlist_shortlist_out_800sp.json"))
+wcharlist_s_dat <- read_json(here::here("../outputs/wcharlist_output/wcharlist_shortlist_out_800sp.json"))
 # Data from desctmatrix_wcharlist_followup.py with default settings with shorter trait list
-wcharlist_sf_dat <- read_json(here::here("../outputs/wcharlist_shortlist_followup_out_800sp.json"))
+wcharlist_sf_dat <- read_json(here::here("../outputs/wcharlist_output/wcharlist_shortlist_followup_out_800sp.json"))
 
 wcharlist_dat$data[[1]]$
 

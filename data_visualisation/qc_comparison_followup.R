@@ -46,4 +46,4 @@ qc_hist <- ggplot(qc_df, aes(x = prop_recovered)) +
   ) +
   theme_bw()
 qc_hist
-ggsave(here::here("figures/prop_recovered_histogram.png"), qc_hist, width = 5, height = 4)
+ggsave(here::here("figures/followup_prop_recovered_histogram.png"), qc_hist, width = 5, height = 4)
