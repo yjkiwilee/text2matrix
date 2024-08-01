@@ -169,7 +169,7 @@ The `data` list contains JSON objects for every transcribed species, with the fo
 | Key | Description |
 | --- | --- |
 | `coreid` | WFO taxon ID of the transcribed species |
-| `status` | `success` for successful parse, `invalid_json` for invalid JSON output, `bad_structure` for JSON that's valid but badly structured. The unsuccessful parse statuses can also have `_followup` at the end, which indicates that the error has ocurred in the response to the follow-up prompt. |
+| `status` | `success` for successful parse, `invalid_json` for invalid JSON output, `bad_structure` for JSON that's valid but badly structured. |
 | `original_description` | The original description imported from WFO |
 | `char_json` | List of JSONS containing the transcribed characteristics. Each element is structured as `{"characteristic": name of characteristic, "value": value of characteristic}`. This is `null` if the response failed to parse. |
 | `failed_str` | Response string from the LLM that failed to parse to JSON. This is `null` if the response successfully parsed. |
