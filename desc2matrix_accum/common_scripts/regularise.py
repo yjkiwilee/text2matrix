@@ -1,4 +1,4 @@
-from typing import List, Optional, Dict
+from typing import List, Optional
 
 def regularise_charjson(chars:List[dict]) -> Optional[List[dict]]:
     """

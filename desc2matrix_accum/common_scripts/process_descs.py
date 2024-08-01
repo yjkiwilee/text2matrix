@@ -1,9 +1,9 @@
-from typing import Dict, Union, List, Optional
+from typing import List, Optional
 from ollama import Client
 import time
 import json
-import regularise
-import process_words
+
+from common_scripts import regularise, process_words
 
 def desc2charjson(sys_prompt:str,
                   prompt:str,
