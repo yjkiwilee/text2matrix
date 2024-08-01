@@ -147,6 +147,9 @@ Here are the words in the original description that you've omitted in your JSON 
 Some of these are broken parts of words that you have included in your final response. For example, the list might have the word 'seudostipule' when you have 'pseudostipule' in your JSON. Ignore such cases.
 Of the words in the above list, try to include all words that contain information about a plant trait that you have genuinely omitted.
 
+Remember to include the following list of characteristics in your output. Use the name of the characteristic as given in this list. If you can't find one or more of these characteristics in the given description, put "NA" as the corresponding value. If you find a characteristic in the given description that is not in this list, add that characteristic in your response.
+[CHARACTER_LIST]
+
 Do not include any text (e.g. introductory text) other than the valid array of JSON.
 
 Here is the original description that you should transcribe:
