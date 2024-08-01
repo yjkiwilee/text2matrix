@@ -2,8 +2,8 @@ import argparse
 import json
 from ollama import Client
 import pandas as pd
-import process_descs # Functions for processing species descriptions into standardised format
-import default_prompts # Default prompts to use
+
+from common_scripts import process_descs, default_prompts # Import functions for processing descriptions and the default prompts
 
 def main(sys_prompt, prompt):
     # Create the parser
