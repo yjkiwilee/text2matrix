@@ -2,25 +2,23 @@
 # install.packages("pacman")
 
 # Load necessary packages
-pacman::p_load("tidyverse", "here", "jsonlite", "ggVennDiagram", "plotly", "ggwordcloud", "scales")
+pacman::p_load("tidyverse", "here", "jsonlite")
 
 # Load json
-# Data from desc2matrix_accum_followup.py with default settings
-accum_dat <- read_json(here::here("../json_outputs/accum_followup_out_800sp.json"))
-# Data from the same script with larger context window size (see file for metadata)
-accum_lc_dat <- read_json(here::here("../json_outputs/accum_f_out_largerctx_800sp.json"))
-# Data from the same script with character list provided in the follow-up question
-accum_lf_dat <- read_json(here::here("../json_outputs/accum_f_out_listinfollowup_800sp.json"))
-# Data from the same script with both treatments
-accum_lclf_dat <- read_json(here::here("../json_outputs/accum_f_out_largerctx_and_listinfollowup_800sp.json"))
+# Data from desctmatrix_accum_followup.py, with the old prompt but with the character list in the follow-up question
+followup_dat <- read_json(here::here("../outputs/accum_output/accum_f_out_listinfollowup_800sp.json"))
+# Data from desc2matrix_accum_followup.py, with the new prompt and with the character list in the follow-up question
+followup_altprompt_dat <- read_json(here::here("../outputs/accum_output/accum_followup_altprompt_out_800sp.json"))
 
 # List containing the data
 accum_dats <- list(
-  accum = accum_dat,
-  accum_lc = accum_lc_dat,
-  accum_lf = accum_lf_dat,
-  accum_lclf = accum_lclf_dat
+  followup = followup_dat,
+  followup_altprompt = followup_altprompt_dat
 )
+
+method_names <- c("followup", "followup_altprompt")
+method_labels <- c("Old initial prompt & follow-up question", "New initial prompt & follow-up question")
+names(method_labels) <- method_names
 
 # ===== Generate accumulation curve =====
 
@@ -42,7 +40,6 @@ fail_df <- tibble(
 )
 
 # Method names
-method_names <- c("accum", "accum_lc", "accum_lf", "accum_lclf")
 method_list <- lapply(seq_along(accum_charlens), function(i) { rep(method_names[i], length(accum_charlens[[i]])) })
 
 # Species IDs
@@ -65,15 +62,10 @@ accum_plt <- ggplot() +
     y = "Number of characteristics",
     color = "Method",
   ) +
-  scale_color_brewer(palette = "Dark2", labels = c(
-    "accum" = "Follow-up",
-    "accum_lc" = "Larger context",
-    "accum_lf" = "With list in the follow-up question",
-    "accum_lclf" = "Larger context and with list in the follow-up question"
-    ),
-    breaks = c("accum", "accum_lc", "accum_lf", "accum_lclf")) +
+  scale_color_brewer(palette = "Dark2", labels = method_labels,
+  breaks = method_names) +
   theme_bw() +
   theme(legend.position = "bottom") +
   guides(color = guide_legend(nrow = 2, byrow = FALSE))
 accum_plt
-ggsave(here::here("figures/accum_curve_800_followup.png"), accum_plt, width = 5, height = 4)
+ggsave(here::here("figures/followup_altprompt_accum_800.png"), accum_plt, width = 5, height = 4)
