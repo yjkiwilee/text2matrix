@@ -147,8 +147,6 @@ def sddxml2dict(sddxml:str):
                 'value': val_str
             })
 
-        # Add missing characteristics
-
         # Sort characteristics
         sp_chars = sorted(sp_chars, key = lambda char: char['characteristic'])
         
