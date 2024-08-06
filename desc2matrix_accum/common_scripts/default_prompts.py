@@ -152,6 +152,7 @@ Remember to include the following list of characteristics in your output. Use th
 [CHARACTER_LIST]
 
 Do not include any text (e.g. introductory text) other than the valid array of JSON.
+Make sure to follow all the instructions given in the initial prompt.
 
 Here is the original description that you should transcribe:
 [DESCRIPTION]
