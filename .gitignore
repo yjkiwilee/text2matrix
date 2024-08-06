@@ -2,3 +2,4 @@ data
 downloads
 env
 test_scripts
+__pycache__
