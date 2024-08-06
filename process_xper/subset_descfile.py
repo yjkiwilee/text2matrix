@@ -87,6 +87,9 @@ def main():
 
     # Write subsetted desc_df to file
     desc_df_sub.to_csv(args.outfile, sep='\t', index=False)
+    
+    # Select taxa for which an entry exists in desc_df
+    taxa_df_sub = taxa_df_sub[taxa_df_sub['coreid'].isin(desc_df_sub['coreid'])]
 
     # Write subsetted taxa_df to file if specified
     if args.taxaout != None:
