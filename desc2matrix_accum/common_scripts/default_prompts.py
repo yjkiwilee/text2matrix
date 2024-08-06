@@ -138,6 +138,7 @@ Here are the descriptions that you should transcribe:
 
 # Follow-up prompt used across the scripts
 # [DESCRIPTION] and [MISSING_WORDS] are each replaced by the plant description and the list of missing words.
+# [CHARACTER_LIST] is replaced by the list of characteristics to extract.
 global_followup_prompt = """
 Please generate a new, more complete JSON response in the same format as before.
 
