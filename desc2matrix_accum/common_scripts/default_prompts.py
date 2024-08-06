@@ -27,7 +27,7 @@ Follow the instructions below.
 1. Transcribe all the mentioned characteristics relating to the whole plant, such as growth form, reproduction, plant height, and branching.
 
 2. Iterate through every mentioned organs (e.g. leaf and other leaf-like organs, stem, flower, inflorescence, fruit, seed and root) and parts of organs (e.g. stipule, anther, ovary) and transcribe their corresponding characteristics.
-You must transcribe the length, width, shape, color, surface texture, surface features, and arrangement of each organ or part of an organ.
+You must transcribe the length, width, shape, colour, surface texture, surface features, and arrangement of each organ or part of an organ.
 Each of these characteristics must be separate. The name of every characteristic relating to an organ or a part of an organ must be formatted as follows: "(name of organ or part of organ) (type of characteristic)", where (name of organ or part of organ) should be substituted with the name of the organ or part of the organ, and (type of characteristic) should be substituted with the specific type of characteristic.
 
 In the final output JSON, try to include all words that appear in the given description, as long as they carry information about the plant species.
@@ -36,7 +36,7 @@ Do not make up characteristics that are not mentioned in the description.
 Here are some examples of descriptions and their correponding transcription in JSON:
 
 Sentence: "Fruit: ovoid berry, 10-12 mm wide, 13-15 mm long, yellow to yellow-green throughout."
-JSON: {"characteristic": "fruit shape", "value": "ovoid"}, {"characteristic": "fruit type", "value": "berry"}, {"characteristic": "fruit width", "value": "10-12 mm"}, {"characteristic": "fruit length", "value": "13-15 mm"}, {"characteristic": "fruit color", "value": "yellow to yellow-green"}
+JSON: {"characteristic": "fruit shape", "value": "ovoid"}, {"characteristic": "fruit type", "value": "berry"}, {"characteristic": "fruit width", "value": "10-12 mm"}, {"characteristic": "fruit length", "value": "13-15 mm"}, {"characteristic": "fruit colour", "value": "yellow to yellow-green"}
 
 Sentence: "Perennial dioecious herbs 60-100cm tall. Leaves alternate, green and glabrous adaxially and hirsute with white to greyish hair abaxially."
 JSON: {"characteristic": "life history", "value": "perennial"}, {"characteristic": "reproduction", "value": "dioecious"}, {"characteristic": "growth form", "value": "herb"}, , {"characteristic": "plant height", "value": "60-100 cm"}, {"characteristic": "leaf arrangement", "value": "alternate"}, {"characteristic": "leaf adaxial colour", "value": "green"}, {"characteristic": "leaf adaxial texture", "value": "glabrous"}, {"characteristic": "leaf abaxial texture", "value": "hirsute"}, {"characteristic": "leaf abaxial hair colour", "value": "white to greyish"}
@@ -66,7 +66,7 @@ Follow the instructions below.
 1. Transcribe all the mentioned characteristics relating to the whole plant, such as growth form, reproduction, plant height, and branching.
 
 2. Iterate through every mentioned organs (e.g. leaf and other leaf-like organs, stem, flower, inflorescence, fruit, seed and root) and parts of organs (e.g. stipule, anther, ovary) and transcribe their corresponding characteristics.
-You must transcribe the length, width, shape, color, surface texture, surface features, and arrangement of each organ or part of an organ.
+You must transcribe the length, width, shape, colour, surface texture, surface features, and arrangement of each organ or part of an organ.
 Each of these characteristics must be separate. The name of every characteristic relating to an organ or a part of an organ must be formatted as follows: "(name of organ or part of organ) (type of characteristic)", where (name of organ or part of organ) should be substituted with the name of the organ or part of the organ, and (type of characteristic) should be substituted with the specific type of characteristic.
 
 In the final output JSON, try to include all words that appear in the given description, as long as they carry information about the plant species.
@@ -75,7 +75,7 @@ Do not make up characteristics that are not mentioned in the description.
 Here are some examples of descriptions and their correponding transcription in JSON:
 
 Sentence: "Fruit: ovoid berry, 10-12 mm wide, 13-15 mm long, yellow to yellow-green throughout."
-JSON: {"characteristic": "fruit shape", "value": "ovoid"}, {"characteristic": "fruit type", "value": "berry"}, {"characteristic": "fruit width", "value": "10-12 mm"}, {"characteristic": "fruit length", "value": "13-15 mm"}, {"characteristic": "fruit color", "value": "yellow to yellow-green"}
+JSON: {"characteristic": "fruit shape", "value": "ovoid"}, {"characteristic": "fruit type", "value": "berry"}, {"characteristic": "fruit width", "value": "10-12 mm"}, {"characteristic": "fruit length", "value": "13-15 mm"}, {"characteristic": "fruit colour", "value": "yellow to yellow-green"}
 
 Sentence: "Perennial dioecious herbs 60-100cm tall. Leaves alternate, green and glabrous adaxially and hirsute with white to greyish hair abaxially."
 JSON: {"characteristic": "life history", "value": "perennial"}, {"characteristic": "reproduction", "value": "dioecious"}, {"characteristic": "growth form", "value": "herb"}, , {"characteristic": "plant height", "value": "60-100 cm"}, {"characteristic": "leaf arrangement", "value": "alternate"}, {"characteristic": "leaf adaxial colour", "value": "green"}, {"characteristic": "leaf adaxial texture", "value": "glabrous"}, {"characteristic": "leaf abaxial texture", "value": "hirsute"}, {"characteristic": "leaf abaxial hair colour", "value": "white to greyish"}
@@ -103,7 +103,7 @@ Follow the instructions below.
 1. Transcribe all the mentioned characteristics relating to the whole plant, such as growth form, reproduction, plant height, and branching.
 
 2. Iterate through every mentioned organs (e.g. leaf and other leaf-like organs, stem, flower, inflorescence, fruit, seed and root) and parts of organs (e.g. stipule, anther, ovary) and transcribe their corresponding characteristics.
-You must transcribe the length, width, shape, color, surface texture, surface features, and arrangement of each organ or part of an organ.
+You must transcribe the length, width, shape, colour, surface texture, surface features, and arrangement of each organ or part of an organ.
 Each of these characteristics must be separate. The name of every characteristic relating to an organ or a part of an organ must be formatted as follows: "(name of organ or part of organ) (type of characteristic)", where (name of organ or part of organ) should be substituted with the name of the organ or part of the organ, and (type of characteristic) should be substituted with the specific type of characteristic.
 
 3. If a characteristic is mentioned for one species (e.g. species ID A) but not for another species (e.g. species ID B) you should put "NA" as the corresponding value for species ID B. 
@@ -122,13 +122,13 @@ JSON output:
     {"characteristic": "growth form", "values": {"A": "herb", "B": "shrub", "C": "herb"}},
     {"characteristic": "plant height", "values": {"A": "10-30 cm", "B": "1-1.5 m", "C": "10-12 cm"}},
     {"characteristic": "fruit shape", "values": {"A": "ovate", "B": "obovate", "C": "flattened"}},
-    {"characteristic": "fruit color", "values": {"A": "yellow when ripe", "B": "red when ripe", "C": "NA"}},
+    {"characteristic": "fruit colour", "values": {"A": "yellow when ripe", "B": "red when ripe", "C": "NA"}},
     {"characteristic": "fruit surface texture", "values": {"A": "tomentose", "B": "NA", "C": "glabrous"}},
     {"characteristic": "leaf arrangement", "values": {"A": "alternate", "B": "opposite", "C": "alternate"}},
     {"characteristic": "leaf surface texture", "values": {"A": "glabrous", "B": "NA", "C": "NA"}},
     {"characteristic": "leaf margin shape", "values": {"A": "NA", "B": "NA", "C": "serrate"}},
     {"characteristic": "leaf shape", "values": {"A": "NA", "B": "lanceolate", "C": "NA"}},
-    {"characteristic": "leaf color", "values": {"A": "deep green", "B": "yellow-green", "C": "mid-green"}},
+    {"characteristic": "leaf colour", "values": {"A": "deep green", "B": "yellow-green", "C": "mid-green"}},
 ]
 
 Here are the descriptions that you should transcribe:
