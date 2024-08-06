@@ -36,7 +36,7 @@ def spname_identity(binom:str, test:str) -> bool:
 
 def main():
     # Create the parser
-    parser = argparse.ArgumentParser(description = 'Convert an SDD XML file from Xper into a JSON format')
+    parser = argparse.ArgumentParser(description = 'Subset a descfile based on a list of species names')
 
     # Basic I/O arguments
     parser.add_argument('descfile', type = str, help = 'Species description tsv file')

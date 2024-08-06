@@ -13,7 +13,7 @@ def main():
     # Basic I/O arguments
     parser.add_argument('sddfile', type = str, help = 'SDD XML file from Xper to process')
     parser.add_argument('outfile', type = str, help = 'File to write the processed JSON into')
-    
+
     # Parse the arguments
     args = parser.parse_args()
 
@@ -21,8 +21,12 @@ def main():
     final_dict:dict = {}
 
     # Read XML file
+    xmlstr:str = ''
     with open(args.sddfile, 'r') as fp:
-        final_dict = sdd_functions.sddxml2dict(fp.read())
+        xmlstr = fp.read()
+    
+    # Convert string to chardict
+    final_dict = sdd_functions.sddxml2dict(xmlstr)
 
     with open(args.outfile, 'w') as fp:
         json.dump(final_dict, fp)

@@ -7,7 +7,7 @@ from common_scripts import sdd_functions # Functions for processing SDD-formatte
 
 def main():
     # Create the parser
-    parser = argparse.ArgumentParser(description = 'Convert an SDD XML file from Xper into a JSON format')
+    parser = argparse.ArgumentParser(description = 'Extract the list of species from and SDD-formatted XML file')
 
     # Basic I/O arguments
     parser.add_argument('sddfile', type = str, help = 'SDD XML file from Xper to process')
@@ -21,8 +21,12 @@ def main():
     spp_list:list[str] = []
 
     # Read and parse XML file
+    xmlstr:str = ''
     with open(args.sddfile, 'r') as fp:
-        spp_list = sdd_functions.sddxml2spplist(fp.read())
+        xmlstr = fp.read()
+    
+    # Extract species list
+    spp_list = sdd_functions.sddxml2spplist(xmlstr)
         
     # Sort species list if needed
     if args.sortspp == True:
