@@ -40,7 +40,7 @@ def getcharcodes_cat(sddxml:str, rm_keywords:list[str] = ['clade', 'distribution
     # Retrieve categorical characteristics
     for cat_char in characters['CategoricalCharacter']: # For each categorical characteristic
         # Characteristic name
-        char_name = cat_char['Representation']['Label'].lower()
+        char_name = cat_char['Representation']['Label'].lower().strip()
         # If at least one of the rm_keywords is in the characteristic name
         if True in [rm_keyword in char_name for rm_keyword in rm_keywords]:
             continue # Skip over
@@ -50,7 +50,7 @@ def getcharcodes_cat(sddxml:str, rm_keywords:list[str] = ['clade', 'distribution
             'type': 'categorical', # Type of characteristic
             'characteristic': char_name, # Name of characteristic in lowercase
             'values': { # Possible values in key-value pairs
-                statedef['@id']: statedef['Representation']['Label'].lower() # Convert to lowercase
+                statedef['@id']: statedef['Representation']['Label'].lower().strip() # Convert to lowercase
                 for statedef in cat_char['States']['StateDefinition']
             }
         }
@@ -94,8 +94,8 @@ def getcharcodes_quant(sddxml:str) -> dict:
         # Add an entry in the dictionary
         quant_char_codes[quant_char['@id']] = {
             'type': 'quantitative', # Type of characteristic
-            'characteristic': quant_char['Representation']['Label'].lower(), # Name of characteristic in lowercase
-            'units': quant_char['MeasurementUnit']['Label'].lower() # Unit for characteristic value in lowercase
+            'characteristic': quant_char['Representation']['Label'].lower().strip(), # Name of characteristic in lowercase
+            'units': quant_char['MeasurementUnit']['Label'].lower().strip() # Unit for characteristic value in lowercase
         }
     
     # Return output dictionary
@@ -172,6 +172,9 @@ def sddxml2dict(sddxml:str) -> dict:
                 else: # If there is only one categorical value
                     val_str = cat_char_codes[cat_char['@ref']]['values'][cat_char['State']['@ref']]
             
+            # Strip val_str
+            val_str = val_str.strip()
+
             # Append item to sp_chars
             sp_chars.append({
                 'characteristic': cat_char_codes[cat_char['@ref']]['characteristic'],
