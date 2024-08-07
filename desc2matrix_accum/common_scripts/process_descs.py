@@ -44,7 +44,7 @@ def desc2charjson(sys_prompt:str,
     # Generate response while specifying system prompt
     prompt_wcontent = prompt.replace('[DESCRIPTION]', desc)
     if chars != None: # Insert characteristics list if specified
-        prompt_wcontent = prompt_wcontent.replace('[CHARACTER_LIST]', ', '.join(chars))
+        prompt_wcontent = prompt_wcontent.replace('[CHARACTER_LIST]', '; '.join(chars))
     resp = client.generate(model = model,
                                 prompt = prompt_wcontent,
                                 system = sys_prompt)['response']
@@ -129,7 +129,7 @@ def desc2charjson_followup(sys_prompt:str,
     omissions = process_words.get_omissions(desc, init_char_json)
 
     # Build the follow-up prompt
-    followup_prompt = f_prompt.replace('[DESCRIPTION]', desc).replace('[MISSING_WORDS]', ', '.join(sorted(omissions))).replace('[CHARACTER_LIST]', ', '.join(chars))
+    followup_prompt = f_prompt.replace('[DESCRIPTION]', desc).replace('[MISSING_WORDS]', '; '.join(sorted(omissions))).replace('[CHARACTER_LIST]', '; '.join(chars))
 
     # Generate response using the follow-up prompt
     followup_resp = client.chat(model = model, stream = False, messages = [
