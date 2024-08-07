@@ -8,13 +8,15 @@ cd ..
 # Activate venv
 source ../env/Scripts/activate
 # Run desc2matrix_accum scripts
-python desc2matrix_accum.py ../data/solanaceae-desc-subset.txt outputs/accum_output/accum_subset.json --desctype=general
-python desc2matrix_accum_tab.py ../data/solanaceae-desc-subset.txt outputs/accum_output/accum_tab_subset.json --desctype=general
-python desc2matrix_accum_followup.py ../data/solanaceae-desc-subset.txt outputs/accum_output/accum_f_subset.json --desctype=general
+# python desc2matrix_accum.py ../data/solanaceae-desc-subset.txt outputs/accum_output/accum_subset.json --desctype=general --numctx=8192
+# python desc2matrix_accum_tab.py ../data/solanaceae-desc-subset.txt outputs/accum_output/accum_tab_subset.json --desctype=general --numctx=8192
+# python desc2matrix_accum_followup.py ../data/solanaceae-desc-subset.txt outputs/accum_output/accum_f_subset.json --desctype=general 
 # Run desc2matrix_wcharlist scripts
-# python desc2matrix_wcharlist.py ../data/solanaceae-desc-subset.txt charlists/solanum_charlist.txt outputs/wcharlist_output/wcharlist_subset.json --desctype=general --prompt=alternative_prompts/prompt_withoutexample.txt --charlistsep="; "
-# python desc2matrix_wcharlist_followup.py ../data/solanaceae-desc-subset.txt charlists/solanum_charlist.txt outputs/wcharlist_output/wcharlist_f_subset.json --desctype=general --charlistsep="; "
+# python desc2matrix_wcharlist.py ../data/solanaceae-desc-subset.txt charlists/solanum_charlist.txt outputs/wcharlist_output/wcharlist_subset.json --desctype=general --prompt=alternative_prompts/prompt_minimalinstruction.txt --charlistsep="; " --numctx=8192
+# python desc2matrix_wcharlist_followup.py ../data/solanaceae-desc-subset.txt charlists/solanum_charlist.txt outputs/wcharlist_output/wcharlist_f_subset.json --desctype=general --prompt=alternative_prompts/prompt_minimalinstruction.txt --charlistsep="; "
+python desc2matrix_wcharlist.py ../data/solanaceae-desc-subset.txt charlists/solanum_charlist_gen_shorter.txt outputs/wcharlist_output/wcharlist_sgenlist_subset.json --desctype=general --prompt=alternative_prompts/prompt_minimalinstruction.txt --charlistsep="; " --numctx=8192
+python desc2matrix_wcharlist_followup.py ../data/solanaceae-desc-subset.txt charlists/solanum_charlist_gen_shorter.txt outputs/wcharlist_output/wcharlist_f_sgenlist_subset.json --desctype=general --prompt=alternative_prompts/prompt_minimalinstruction.txt --charlistsep="; "
+python desc2matrix_wcharlist.py ../data/solanaceae-desc-subset.txt charlists/solanum_charlist_gen_longer.txt outputs/wcharlist_output/wcharlist_sgenlist_subset.json --desctype=general --prompt=alternative_prompts/prompt_minimalinstruction.txt --charlistsep="; " --numctx=8192
+python desc2matrix_wcharlist_followup.py ../data/solanaceae-desc-subset.txt charlists/solanum_charlist_gen_longer.txt outputs/wcharlist_output/wcharlist_f_sgenlist_subset.json --desctype=general --prompt=alternative_prompts/prompt_minimalinstruction.txt --charlistsep="; "
 # Deactivate venv
 deactivate
-# Exit shell
-exit
