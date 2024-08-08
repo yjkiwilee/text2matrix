@@ -60,6 +60,8 @@ def main(sys_prompt, tab_prompt, prompt):
     # Slice according to --start and --spnum options
     if(args.spnum != None):
         descdf = descdf[args.start : args.start + args.spnum]
+    else:
+        descdf = descdf[args.start:]
 
     # Extract descriptions
     descs = descdf['description'].tolist()
