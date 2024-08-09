@@ -1,4 +1,5 @@
 from typing import List, Optional
+import copy
 
 def regularise_charjson(chars:List[dict]) -> Optional[List[dict]]:
     """
@@ -36,7 +37,7 @@ def regularise_charjson(chars:List[dict]) -> Optional[List[dict]]:
     # Return the new dict
     return new_dict
 
-def regularise_table(table:List[dict], spids:List[str]) -> Optional[List[dict]]:
+def regularise_table(table:List[dict], spids:List[str] = None) -> Optional[List[dict]]:
     """
     Check whether the character table dict produced by process_descs.get_char_table has a valid structure,
     and do some cleanup
@@ -52,6 +53,13 @@ def regularise_table(table:List[dict], spids:List[str]) -> Optional[List[dict]]:
     if not isinstance(table, list): # If table is not a list; needed as no exception will be thrown
         return None
 
+    if len(table) == 0: # If table is empty, return the table
+        return table
+
+    # Variable for storing the list of species IDs
+    spids = copy.deepcopy(spids if spids != None else [])
+
+    # Variable for storing the output table
     new_table = []
 
     # Go through elements
@@ -59,6 +67,10 @@ def regularise_table(table:List[dict], spids:List[str]) -> Optional[List[dict]]:
         # Return false if the keys are different from what we expect
         if set(char.keys()) != {'characteristic', 'values'}:
             return False
+        
+        # Set spids if it's empty
+        if len(spids) == 0:
+            spids = char['values'].keys()
         
         # Return false if the values are badly structured
         if set(char['values'].keys()) != set(spids):
