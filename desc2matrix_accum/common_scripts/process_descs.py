@@ -99,7 +99,7 @@ def desc2charjson_followup(sys_prompt:str,
         silent (bool): If this is set to False, the function will output a log showing task completion and elapsed time. Default is False.
 
     Returns:
-        char_json (dict): The output containing the status code (['status'] = 'success' | 'bad_structure' | 'invalid_json') and the extracted characteristics(['data'])
+        char_json (dict): The output dict
     """
 
     # Variable to store the final char_json
@@ -189,6 +189,9 @@ def get_char_table(sys_prompt:str,
         client (Client): The Ollama Client to use for running the LLM.
         model (str): The name of the LLM to use. Default is 'desc2matrix' which is created by desc2matrix_*.py.
         silent (bool): If this is set to False, the function will output a log showing task completion and elapsed time. Default is False.
+    
+    Returns:
+        char_json (dict): The output dict
     """
     
     # Variable to store the output JSON 'table'
