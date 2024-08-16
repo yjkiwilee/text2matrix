@@ -4,3 +4,5 @@ ollama
 nltk
 argparse
 inflect
+langchain
+langchain-groq
