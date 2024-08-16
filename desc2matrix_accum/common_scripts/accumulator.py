@@ -2,7 +2,7 @@
 Script for defining TraitAccumulator classes.
 """
 
-from typing import List, Optional
+from typing import List
 import time
 import json
 import copy
@@ -49,17 +49,25 @@ class TraitAccumulator(LLMCharJSONProcessor):
         # Variable to store characteristic list history
         self.charlist_history:List[List[str]] = []
 
-    def extract_init_chars(self, desc:str, show_log:bool = False) -> List[str]:
+    def extract_init_chars(self, desc:str, show_log:bool = False, store_results:bool = True) -> dict:
         """
         Function for extracting the initial list of characteristics from a single species description.
-        The initial list of characteristics is stored in the object and returned.
+        The initial list of characteristics is stored in the object if store_results is true.
+        The resulting char_json from the processed description is returned, which is formatted as follows:
+        {
+            'status': 'success' | 'bad_structure' | 'invalid_json',
+            'data': [
+                {'characteristic': (characteristic), 'value': (value)},
+                (...)
+            ] IF STATUS IS SUCCESS ELSE (string that failed to parse)
+        }
         
         Parameters:
             desc (str): The description to extract the initial characteristics from
             show_log (bool): If this is set to True, show progress logs. Default is False
         
         Returns:
-            init_charlist (List[str]): The initial list of characteristic names
+            char_json (dict): The resulting char_json from the processed description
         """
 
         # Prepare prompt
@@ -67,31 +75,48 @@ class TraitAccumulator(LLMCharJSONProcessor):
 
         # Generate LLM output for the description
         char_json = self.prompt2charjson(prompt_wcontent, show_log = show_log)
-        
-        # Extract list of characteristics (empty list if the run didn't succeed)
-        init_charlist = ([char['characteristic'] for char in char_json['data']]
-                         if char_json['status'] == 'success' else [])
 
-        # Store list of characteristics
-        self.charlist_history = [init_charlist]
+        # If we need to store the resulting list of characteristics
+        if store_results:
+            # Extract list of characteristics (empty list if the run didn't succeed)
+            init_charlist = ([char['characteristic'] for char in char_json['data']]
+                            if char_json['status'] == 'success' else [])
+
+            # Store list of characteristics
+            self.charlist_history = [init_charlist]
         
         # Return extracted initial list of characteristics
-        return init_charlist
+        return char_json
     
-    def accum_step(self, desc:str, show_log:bool = False) -> List[str]:
+    def accum_step(self, spid:str, desc:str, show_log:bool = False, store_results:bool = True) -> dict:
         """
         Function for a step in the accumulation process, where the traits are extracted from an
         additional species and the list of characteristics is updated if
         the new list of characteristics is longer than the most recent list.
-        This function returns the latest list of traits that results.
+        This function returns the char_json from the processed description, which is formatted as follows:
+        {
+            'status': 'success' | 'bad_structure' | 'invalid_json',
+            'data': [
+                {'characteristic': (characteristic), 'value': (value)},
+                (...)
+            ] IF STATUS IS SUCCESS ELSE (string that failed to parse)
+        }
         
         Parameters:
+            spid (str): The WFO id of the species
             desc (str): The description to extract the characteristics from
             show_log (bool): If this is set to True, show progress logs. Default is False
+            store_results (bool): Whether to store the output list of characteristics and char_json to use in the following accumulation steps. Default is True
         
         Returns:
-            new_charlist (List[str]): The new list of characteristic names
+            char_json (dict): Processed char_json from the species description
         """
+
+        # Status log
+        start = 0
+        if show_log:
+            print('trait accumulation: processing... ', end = '', flush = True)
+            start = time.time()
 
         # Check if charlist has been initialised
         if self.charlist_history == []:
@@ -107,26 +132,34 @@ class TraitAccumulator(LLMCharJSONProcessor):
         # Generate output with predetermined character list
         char_json = self.prompt2charjson(prompt_wcontent, show_log = show_log)
 
-        # Extract list of characteristics (copy of latest list if run didn't succeed)
-        new_charlist = ([char['characteristic'] for char in char_json['data']]
-                         if char_json['status'] == 'success' else copy.deepcopy(last_charlist))
+        # If we need to store the results
+        if store_results:
+            # Extract list of characteristics (copy of latest list if run didn't succeed)
+            new_charlist = ([char['characteristic'] for char in char_json['data']]
+                            if char_json['status'] == 'success' else copy.deepcopy(last_charlist))
+            
+            # If the new list of characteristics is shorter than the previous one, override with the previous one
+            new_charlist = new_charlist if len(new_charlist) > len(last_charlist) else copy.deepcopy(last_charlist)
+
+            # Store list of characteristics
+            self.charlist_history.append(new_charlist)
+
+            # Update sp_chars
+            self.sp_chars.append({
+                'coreid': spid,
+                'status': char_json['status'], # Status: one of 'success', 'bad_structure', 'invalid_json'
+                'original_description': desc,
+                'char_json': char_json['data'] if char_json['status'] == 'success' else None, # Only use this if parsing succeeded
+                'failed_str': char_json['data'] if char_json['status'] != 'success' else None # Only use this if parsing failed
+            })
         
-        # If the new list of characteristics is shorter than the previous one, override with the previous one
-        new_charlist = new_charlist if len(new_charlist) > len(last_charlist) else copy.deepcopy(last_charlist)
+        # Status log
+        if show_log:
+            elapsed_t = time.time() - start
+            print(f'done in {elapsed_t:.2f} s!')
 
-        # Store list of characteristics
-        self.charlist_history.append(new_charlist)
-
-        # Update sp_chars
-        self.sp_chars.append({
-            'status': char_json['status'], # Status: one of 'success', 'bad_structure', 'invalid_json'
-            'original_description': desc,
-            'char_json': char_json['data'] if char_json['status'] == 'success' else None, # Only use this if parsing succeeded
-            'failed_str': char_json['data'] if char_json['status'] != 'success' else None # Only use this if parsing failed
-        })
-
-        # Return new list of characteristics
-        return new_charlist
+        # Return char_json
+        return char_json
     
     def get_summary(self) -> dict:
         """
@@ -181,19 +214,27 @@ class TabTraitAccumulator(TraitAccumulator):
     # Run mode name in the summary output
     RUN_MODE_NAME = 'desc2json_accum_tab'
 
-    def extract_init_chars(self, sp_ids:List[str], descs:List[str], show_log:bool = False) -> dict:
+    def extract_init_chars(self, sp_ids:List[str], descs:List[str], show_log:bool = False, store_results:bool = True) -> dict:
         """
         Function for extracting the initial list of characteristics by tabulating multiple species descriptions.
-        The initial list of characteristics is stored in the object and returned.
+        The generated initial list of characteristics is stored in the object if store_results is true.
+        The resulting char_json from the processed description is returned, which is formatted as follows:
+        {
+            'status': 'success' | 'bad_structure' | 'invalid_json',
+            'data': [
+                {'characteristic': (characteristic), 'values': {'species id 1': '', (...)}},
+                (...)
+            ] IF STATUS IS SUCCESS ELSE (string that failed to parse)
+        }
         
         Parameters:
-            prompt (str): The prompt to use for character extraction. '[DESCRIPTION]' in the string is replaced by the species description and '[CHARACTER_LIST]' is replaced by the provided list of characteristics.
-            sp_ids (List[str]): The species IDs to use when building the list of descriptions to pass to the LLM.
-            descs (List[str]): The botanical descriptions of the plant species.
-            show_log (bool): If this is set to True, it will show the status of each run. Default is False.
+            sp_ids (List[str]): The species ids corresponding to the descriptions
+            desc (List[str]): The descriptions to use for initial tabulation
+            show_log (bool): If this is set to True, show progress logs. Default is False
+            store_results (bool): If true, store the resulting list of initial characteristics in the object. Default is True
         
         Returns:
-            init_charlist (List[str]): The initial list of characteristic names
+            char_json (dict): The resulting char_json from the processed description
         """
 
         # Build description string
@@ -207,15 +248,17 @@ class TabTraitAccumulator(TraitAccumulator):
         # NB: The regulariser for table output must be used here.
         char_json = self.prompt2charjson(prompt_wcontent, regulariser = regularise.regularise_table, show_log = show_log)
 
-        # Extract list of characteristics (empty list if the run didn't succeed)
-        init_charlist = ([char['characteristic'] for char in char_json['data']]
-                         if char_json['status'] == 'success' else [])
+        # If we need to store the results
+        if store_results:
+            # Extract list of characteristics (empty list if the run didn't succeed)
+            init_charlist = ([char['characteristic'] for char in char_json['data']]
+                            if char_json['status'] == 'success' else [])
 
-        # Store list of characteristics
-        self.charlist_history = [init_charlist]
+            # Store list of characteristics
+            self.charlist_history = [init_charlist]
         
-        # Return extracted initial list of characteristics
-        return init_charlist
+        # Return resulting char_json
+        return char_json
     
 class FollowupTraitAccumulator(TraitAccumulator):
     """
@@ -254,7 +297,7 @@ class FollowupTraitAccumulator(TraitAccumulator):
         # Run superclass initiator to store parameters and initialist Ollama model
         super().__init__(sys_prompt, init_prompt, accum_prompt, base_llm, llm_params, llm_name, host_url)
 
-    def accum_step(self, desc:str, chars:List[str] = None, show_log:bool = False):
+    def accum_step(self, spid:str, desc:str, show_log:bool = False, store_results:bool = True) -> dict:
         """
         Function for a step in the accumulation process, where the traits are extracted from an
         additional species and the list of characteristics is updated if
@@ -262,46 +305,49 @@ class FollowupTraitAccumulator(TraitAccumulator):
         This version of the function asks the LLM a 'follow-up' question at each step,
         which includes a list of words in the original description that it has omitted
         in the initial response. This is to increase the completeness of characteristics retrieved.
-        This function returns the latest list of traits that results.
+        This function returns the char_json after the follow-up question, which is formatted as follows:
+        {
+            'status': 'success' | 'bad_structure' | 'invalid_json' | 'bad_structure_followup' | 'invalid_json_followup',
+            'data': [
+                {'characteristic': (characteristic), 'values': {'species id 1': '', (...)}},
+                (...)
+            ] IF STATUS IS SUCCESS ELSE (string that failed to parse)
+        }
 
         Parameters:
+            spid (str): The WFO id of the species.
             desc (str): The botanical description of the plant species.
-            chars (List[str]): The list of characteristic names to extract values of.
             show_log (bool): If this is set to True, the function will output a log of the run status. Default is False.
+            store_results (bool): If this is True, the processed trait list and characteristic values from the description will be stored in the object. Default is True.
 
         Returns:
-            new_charlist (List[str]): The new list of characteristic names
+            char_json (dict): The new list of characteristic names
         """
 
-        # Check if charlist has been initialised
-        if self.charlist_history == []:
-            raise Exception("Charlist has not been initialised. You must run extract_init_chars() first before running accum_step().")
+        # Generate initial response without storing the results by calling the super accum_step function
+        char_json = super().accum_step(spid, desc, show_log = show_log, store_results = False)
+
+        # Status log
+        start = 0
+        if show_log:
+            print('follow-up question: processing... ', end = '', flush = True)
+            start = time.time()
 
         # Get the latest list of characteristics
         last_charlist = self.charlist_history[len(self.charlist_history) - 1]
-
-        # Variable to store the char_json output from LLM
-        char_json = {}
-
-        # Prepare prompt
-        prompt_wcontent = self.accum_prompt.replace('[DESCRIPTION]', desc) # Insert species description
-        prompt_wcontent = prompt_wcontent.replace('[CHARACTER_LIST]', '; '.join(chars)) # Insert characteristics
-
-        # Generate initial response
-        char_json = self.prompt2charjson(prompt_wcontent, show_log = show_log)
 
         if(char_json['status'] != 'success'): # If initial JSON output was invalid or badly structured
             # Just proceed to updating list of chracteristics
             pass
         else: # If the initial JSON output successfully parsed
-            # Extract the char_json response data
+            # Extract the char_json response
             init_charjson_dat = char_json['data']
             
             # Retrieve omissions
             omissions = process_words.get_omissions(desc, init_charjson_dat)
 
             # Build the follow-up prompt
-            followup_prompt = self.f_prompt.replace('[DESCRIPTION]', desc).replace('[MISSING_WORDS]', '; '.join(sorted(omissions))).replace('[CHARACTER_LIST]', '; '.join(chars))
+            followup_prompt = self.f_prompt.replace('[DESCRIPTION]', desc).replace('[MISSING_WORDS]', '; '.join(sorted(omissions))).replace('[CHARACTER_LIST]', '; '.join(last_charlist))
 
             # Build the messages
             messages = [
@@ -312,7 +358,7 @@ class FollowupTraitAccumulator(TraitAccumulator):
             ]
 
             # Generate followup response
-            f_char_json = self.messages2charjson(messages, show_log)
+            f_char_json = self.messages2charjson(messages, show_log = show_log)
 
             # Add '_followup' to status code if the output failed to parse
             if f_char_json['status'] != 'success':
@@ -321,26 +367,34 @@ class FollowupTraitAccumulator(TraitAccumulator):
             # Set char_json as f_char_json
             char_json = f_char_json
 
-        # Extract list of characteristics (copy of latest list if run didn't succeed)
-        new_charlist = ([char['characteristic'] for char in char_json['data']]
-                         if char_json['status'] == 'success' else copy.deepcopy(last_charlist))
-        
-        # If the new list of characteristics is shorter than the previous one, override with the previous one
-        new_charlist = new_charlist if len(new_charlist) > len(last_charlist) else copy.deepcopy(last_charlist)
+        # If we need to store the results in the object
+        if store_results:
+            # Extract list of characteristics (copy of latest list if run didn't succeed)
+            new_charlist = ([char['characteristic'] for char in char_json['data']]
+                            if char_json['status'] == 'success' else copy.deepcopy(last_charlist))
+            
+            # If the new list of characteristics is shorter than the previous one, override with the previous one
+            new_charlist = new_charlist if len(new_charlist) > len(last_charlist) else copy.deepcopy(last_charlist)
 
-        # Store list of characteristics
-        self.charlist_history.append(new_charlist)
+            # Store list of characteristics
+            self.charlist_history.append(new_charlist)
 
-        # Update sp_chars
-        self.sp_chars.append({
-            'status': char_json['status'], # Status: one of 'success', 'bad_structure', 'invalid_json', 'bad_structure_followup', 'invalid_json_followup'
-            'original_description': desc,
-            'char_json': char_json['data'] if char_json['status'] == 'success' else None, # Only use this if parsing succeeded
-            'failed_str': char_json['data'] if char_json['status'] != 'success' else None # Only use this if parsing failed
-        })
+            # Update sp_chars
+            self.sp_chars.append({
+                'coreid': spid,
+                'status': char_json['status'], # Status: one of 'success', 'bad_structure', 'invalid_json', 'bad_structure_followup', 'invalid_json_followup'
+                'original_description': desc,
+                'char_json': char_json['data'] if char_json['status'] == 'success' else None, # Only use this if parsing succeeded
+                'failed_str': char_json['data'] if char_json['status'] != 'success' else None # Only use this if parsing failed
+            })
 
-        # Return new list of characteristics
-        return new_charlist
+        # Status log
+        if show_log:
+            elapsed_t = time.time() - start
+            print(f'done in {elapsed_t:.2f} s!')
+
+        # Return char_json
+        return char_json
     
     def get_summary(self) -> dict:
         """

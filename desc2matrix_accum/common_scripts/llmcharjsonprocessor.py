@@ -83,7 +83,7 @@ class LLMCharJSONProcessor:
         # Attempt to parse prompt as JSON
         char_json = {} # Output JSON
         try:
-            resp_json = json.loads(resp.replace("'", '"')) # Replace ' with "
+            resp_json = json.loads(resp) # Parse output as JSON
             # Check validity / regularise output
             reg_resp_json = regulariser(resp_json)
             if reg_resp_json != None:
@@ -96,7 +96,7 @@ class LLMCharJSONProcessor:
         # Return result
         return char_json
     
-    def print_status_log(self, status:str, end:str = '\n') -> None:
+    def print_status_log(self, status:str, end:str = '') -> None:
         """
         Simple internal function for showing the status log depending on the status code.
 
