@@ -7,9 +7,9 @@ import time
 import json
 
 from common_scripts import process_words
-from common_scripts.llmcharjsonprocessor import LLMCharJSONProcessor
+from common_scripts.llmcharprocessor import LLMCharProcessor
 
-class TraitExtractor(LLMCharJSONProcessor):
+class TraitExtractor(LLMCharProcessor):
     """
     Base trait extractor class, used in desc2matrix_wcharlist.py
     """
