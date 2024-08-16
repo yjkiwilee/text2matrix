@@ -3,3 +3,4 @@ python-dwca-reader
 langchain-core
 langchain-ollama
 ollama
+langchain-groq
