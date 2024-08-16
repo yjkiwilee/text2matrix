@@ -1,5 +1,5 @@
 """
-Script for defining the LLMCharJSONProcessor class, which forms the basis of TraitAccumulator and TraitExtractor.
+Script for defining the LLMCharProcessor class, which forms the basis of TraitAccumulator and TraitExtractor.
 """
 
 from typing import List, Dict, Optional, Any
@@ -10,9 +10,9 @@ import copy
 
 from common_scripts import regularise
 
-class LLMCharJSONProcessor:
+class LLMCharProcessor:
     """
-    Base LLMCharJSONProcessor class, which is extended by TraitAccumulator and TraitExtractor.
+    Base LLMCharProcessor class, which is extended by TraitAccumulator and TraitExtractor.
     Initialisation, charjson generation, and summary generation are defined here.
     """
 
