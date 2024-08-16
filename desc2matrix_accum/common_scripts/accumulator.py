@@ -8,9 +8,9 @@ import json
 import copy
 
 from common_scripts import regularise, process_words
-from common_scripts.llmcharjsonprocessor import LLMCharJSONProcessor
+from common_scripts.llmcharprocessor import LLMCharProcessor
 
-class TraitAccumulator(LLMCharJSONProcessor):
+class TraitAccumulator(LLMCharProcessor):
     """
     Base trait accumulator class, used in desc2matrix_accum.py
     """
@@ -71,7 +71,7 @@ class TraitAccumulator(LLMCharJSONProcessor):
         """
 
         # Prepare prompt
-        prompt_wcontent = self.accum_prompt.replace('[DESCRIPTION]', desc) # Insert species description
+        prompt_wcontent = self.init_prompt.replace('[DESCRIPTION]', desc) # Insert species description
 
         # Generate LLM output for the description
         char_json = self.prompt2charjson(prompt_wcontent, show_log = show_log)
