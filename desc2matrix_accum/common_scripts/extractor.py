@@ -53,7 +53,7 @@ class TraitExtractor(LLMCharProcessor):
         {
             'status': 'success' | 'bad_structure' | 'invalid_json',
             'data': [
-                {'characteristic': (characteristic), 'values': {'species id 1': '', (...)}},
+                {'characteristic': (characteristic), 'value': (value)},
                 (...)
             ] IF STATUS IS SUCCESS ELSE (string that failed to parse)
         }

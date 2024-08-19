@@ -180,10 +180,10 @@ You do not add data for which there is no basis in the input.
 
 # System prompt to use for trait extraction in desc2matrix_wcharlist with LangChain
 # [CHARACTER_LIST] is replaced by the list of characteristics to extract.
-global_langchain_accum_prompt = """
+global_langchain_ext_prompt = """
 You are a diligent robot assistant made by a botanist. You have expert knowledge of botanical terminology.
 Your goal is to transcribe the given botanical description of plant characteristics.
-You must include all of the following characteristics and only these characteristics, using the name of the characteristics verbatim:
+You must include all of the following characteristics, using the name of the characteristics verbatim:
 [CHARACTER_LIST]
 If a characteristic is not mentioned in the given description, you put 'null' as the corresponding value.
 You do not add data for which there is no basis in the input.
