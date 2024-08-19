@@ -69,7 +69,7 @@ def main():
     # Extract original descriptions and their JSON counterparts OR LLM output that failed to parse
     descs = [desc['original_description'] for desc in desc_output]
     descs_formatted = ['\n'.join(['{}: {}'.format(char['characteristic'], char['value']) for char in desc['char_json']]) if desc['status'] == 'success' # Convert JSON into a single string
-                       else desc['failed_str']
+                       else (desc['failed_str'] if 'failed_str' in desc else '') # failed_str may not exist; put empty string if this is the case
                        for desc in desc_output]
 
     # Get word sets
