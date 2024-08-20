@@ -9,6 +9,8 @@ from langchain_groq import ChatGroq
 import json
 import copy
 import time
+import ast
+import re
 
 # ===== Data schema =====
 
@@ -104,37 +106,37 @@ class LangChainCharProcessor:
             'data': None
         }
 
-        try:
+        try: # Check for parsing error
             # Invoke the prompt and get the response
             response = llm_chain.invoke({'description': desc})
-
-            # Check for parsing error
-            if response['parsing_error'] == None: # If parsing was successful
-                # Print status if show_log is true
-                if show_log:
-                    print('parse succeeded! ', end = '', flush = True)
-                # Set status
-                chardict['status'] = 'success'
-                # Write data in the output dictionary
-                chardict['data'] = [
-                    {
-                        'characteristic': trait.characteristic,
-                        'value': trait.value
-                    } for trait in response['parsed'].traits
-                ]
-            else: # If parsing was unsuccessful
-                # Print status if show_log is true
-                if show_log:
-                    print('parse failed but without exception! ', end = '', flush = True)
-                # Set status
-                chardict['status'] = response['parsing_error']
         except Exception as err: # If parsing error occurs
             # Print status if show_log is true
             if show_log:
-                print('exception thrown: ', err, end = '', flush = True)
-            # Set status
-            chardict['status'] = 'exception_thrown'
-        
+                print('exception thrown! ', end = '', flush = True)
+            # Get error string
+            err_str:str = err.args[0]
+            # Extract dict string from the error string
+            err_dict_str = err_str[err_str.find('{') : err_str.rfind('}') + 1]
+            # Parse error string
+            err_dict = ast.literal_eval(err_dict_str)
+            # Set status as error code
+            chardict['status'] = err_dict['error']['code'] if 'code' in err_dict['error'] else None
+            # Get the output that failed to parse if it exists
+            chardict['data'] = err_dict['error']['failed_generation'] if 'failed_generation' in err_dict['error'] else None
+        else:
+            # Print status if show_log is true
+            if show_log:
+                print('parse succeeded! ', end = '', flush = True)
+            # Set status as success since no exception was thrown at invoke
+            chardict['status'] = 'success'
+            # Write data in the output dictionary
+            chardict['data'] = [
+                {
+                    'characteristic': trait.characteristic,
+                    'value': trait.value
+                } for trait in response['parsed'].traits
+            ]
+
         # Return the output dictionary
         return chardict
     
@@ -313,7 +315,8 @@ class LCTraitAccumulator(LangChainCharProcessor):
                 'coreid': spid,
                 'status': char_json['status'],
                 'original_description': desc,
-                'char_json': char_json['data']
+                'char_json': char_json['data'] if char_json['status'] == 'success' else None,
+                'failed_str': char_json['data'] if char_json['status'] != 'success' else None
             })
 
         # Status log
@@ -445,7 +448,8 @@ class LCTraitExtractor(LangChainCharProcessor):
                 'coreid': spid,
                 'status': char_json['status'], # Status: one of 'success', 'bad_structure', 'invalid_json'
                 'original_description': desc,
-                'char_json': char_json['data']
+                'char_json': char_json['data'] if char_json['status'] == 'success' else None,
+                'failed_str': char_json['data'] if char_json['status'] != 'success' else None
             })
         
         # Status log
