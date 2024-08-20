@@ -1,51 +1,8 @@
 import argparse
-import re
 import json
-import nltk
 import pandas as pd
-import inflect
 
-nltk.download('punkt')
-nltk.download('stopwords')
-nltk.download('averaged_perceptron_tagger')
-from nltk.corpus import stopwords
-
-inf = inflect.engine()
-# Turn on 'classical' plurals as they are likely to occur in the dataset
-inf.classical()
-
-def get_word_set(descstr):
-    # Gather stop words
-    stop_words = set(stopwords.words('english'))
-
-    # Insert whitespace before/after period, comma, colon, semicolon and brackets
-    descstr = re.sub(r'[^0-9] *\. *[^0-9]', '. ', descstr) # Do not substitute periods in floating-point numbers
-    descstr = re.sub(r'[^0-9] *\. *[0-9]', '. ', descstr) # Substitute periods next to numbers if either side is not a number
-    descstr = re.sub(r'[0-9] *\. *[^0-9]', '. ', descstr)
-    descstr = re.sub(r' *, *', ', ', descstr)
-    descstr = re.sub(r' *: *', ': ', descstr)
-    descstr = re.sub(r' *; *', '; ', descstr)
-    descstr = re.sub(r' *\( *', ' (', descstr)
-    descstr = re.sub(r' *\) *', ') ', descstr)
-
-    # Collapse numeric ranges to single 'word' to check for presence
-    descstr = re.sub(r'([0-9]) *- *([0-9])', r'\1-\2', descstr)
-
-    # Tokenise words, remove stop words, convert to lowercase
-    descset = set([w.lower() for w in nltk.word_tokenize(descstr) if not w.lower() in stop_words])
-
-    # Remove punctuations & brackets
-    descset = descset.difference({'.', ',', ':', ';', '“', '”', '"', "'", "(", ")"})
-
-    # Singularise nouns (duplicates will automatically be merged since this is a set)
-    descset_n = set([w for w in descset
-                     if nltk.pos_tag([w])[0][1] in ['NN', 'NNS', 'NNPS', 'NNP']])
-    descset_sing_n = set([w if inf.singular_noun(w) == False else inf.singular_noun(w) # inflection may determine that the word is not a noun, in which case use the original word
-                          for w in descset_n])
-    descset = descset.difference(descset_n).union(descset_sing_n) # Remove nouns and add back singulars
-
-    # Return word set
-    return descset
+from common_scripts import desc_nlp
 
 def main():
     # Create the parser
@@ -73,8 +30,8 @@ def main():
                        for desc in desc_output]
 
     # Get word sets
-    descsets = [get_word_set(desc) for desc in descs]
-    descsets_f = [get_word_set(desc_f) for desc_f in descs_formatted]
+    descsets = [desc_nlp.get_word_set(desc) for desc in descs]
+    descsets_f = [desc_nlp.get_word_set(desc_f) for desc_f in descs_formatted]
 
     # Dataframe to store the results
     df = pd.DataFrame(columns = [
