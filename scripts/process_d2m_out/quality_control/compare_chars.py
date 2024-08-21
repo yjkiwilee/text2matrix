@@ -98,7 +98,7 @@ def main():
         'nwords_key_only', # Number of non-stop words in the key description only
         'words_common', # Comma-separated list of non-stop words that the d2m output and the key output share
         'words_d2m_only', # Comma-separated list of non-stop words that are only in the d2m output
-        'words_key_only' # Comma-separated list of non-stop words that are only in the structured key
+        'words_key_only', # Comma-separated list of non-stop words that are only in the structured key
         'nwords_common_vals', # Same as nwords_common, but with characteristic values only
         'nwords_d2m_only_vals', # With characteristic values only
         'nwords_key_only_vals', # With characteristic values only
@@ -210,12 +210,12 @@ def main():
 
         # Calculate word count metrics & put into row
         df_row.update({
-            'nwords_common_val': len(w_common_val),
-            'nwords_d2m_only_val': len(w_d2m_only_val),
-            'nwords_key_only_val': len(w_key_only_val),
-            'words_common_val': ','.join(sorted(w_common_val)),
-            'words_d2m_only_val': ','.join(sorted(w_d2m_only_val)),
-            'words_key_only_val': ','.join(sorted(w_key_only_val))
+            'nwords_common_vals': len(w_common_val),
+            'nwords_d2m_only_vals': len(w_d2m_only_val),
+            'nwords_key_only_vals': len(w_key_only_val),
+            'words_common_vals': ','.join(sorted(w_common_val)),
+            'words_d2m_only_vals': ','.join(sorted(w_d2m_only_val)),
+            'words_key_only_vals': ','.join(sorted(w_key_only_val))
         })
 
         # ===== Insert row into df =====
