@@ -14,13 +14,14 @@ inf.classical()
 
 def get_word_set(descstr:str) -> Set[str]:
     """
-    Get the set of words in a given string
+    Get the list of non-stop words from a plant description string.
+    This function removes punctuations from the tokens, collapses numeric ranges to 'words', and singularises nouns.
 
-    Paramters:
-        descstr (str): The string to extract non-stop words from
-    
+    Parameters:
+        descstr (str): The plant description string to process.
+
     Returns:
-        descset (Set[str]): The set of non-stop words in the provided string
+        descset (Set[str]): The set of non-stop words found in the plant description.
     """
 
     # Gather stop words
@@ -30,11 +31,7 @@ def get_word_set(descstr:str) -> Set[str]:
     descstr = re.sub(r'[^0-9] *\. *[^0-9]', '. ', descstr) # Do not substitute periods in floating-point numbers
     descstr = re.sub(r'[^0-9] *\. *[0-9]', '. ', descstr) # Substitute periods next to numbers if either side is not a number
     descstr = re.sub(r'[0-9] *\. *[^0-9]', '. ', descstr)
-    descstr = re.sub(r' *, *', ', ', descstr)
-    descstr = re.sub(r' *: *', ': ', descstr)
-    descstr = re.sub(r' *; *', '; ', descstr)
-    descstr = re.sub(r' *\( *', ' (', descstr)
-    descstr = re.sub(r' *\) *', ') ', descstr)
+    descstr = re.sub(r'[,:;\(\)\[\]{}"\'`“”]', ' ', descstr) # Replace brackets, etc. with space
 
     # Collapse numeric ranges to single 'word' to check for presence
     descstr = re.sub(r'([0-9]) *- *([0-9])', r'\1-\2', descstr)
@@ -43,7 +40,7 @@ def get_word_set(descstr:str) -> Set[str]:
     descset = set([w.lower() for w in nltk.word_tokenize(descstr) if not w.lower() in stop_words])
 
     # Remove punctuations & brackets
-    descset = descset.difference({'.', ',', ':', ';', '“', '”', '"', "'", "(", ")"})
+    descset = descset.difference({'.'})
 
     # Singularise nouns (duplicates will automatically be merged since this is a set)
     descset_n = set([w for w in descset
