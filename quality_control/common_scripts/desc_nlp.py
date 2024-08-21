@@ -35,11 +35,7 @@ def get_word_set(descstr:str) -> Set[str]:
     descstr = re.sub(r'[^0-9] *\. *[^0-9]', '. ', descstr) # Do not substitute periods in floating-point numbers
     descstr = re.sub(r'[^0-9] *\. *[0-9]', '. ', descstr) # Substitute periods next to numbers if either side is not a number
     descstr = re.sub(r'[0-9] *\. *[^0-9]', '. ', descstr)
-    descstr = re.sub(r' *, *', ', ', descstr)
-    descstr = re.sub(r' *: *', ': ', descstr)
-    descstr = re.sub(r' *; *', '; ', descstr)
-    descstr = re.sub(r' *\( *', ' (', descstr)
-    descstr = re.sub(r' *\) *', ') ', descstr)
+    descstr = re.sub(r'[,:;\(\)\[\]{}"\'`“”]', ' ', descstr) # Replace brackets, etc. with space
 
     # Collapse numeric ranges to single 'word' to check for presence
     descstr = re.sub(r'([0-9]) *- *([0-9])', r'\1-\2', descstr)
@@ -48,7 +44,7 @@ def get_word_set(descstr:str) -> Set[str]:
     descset = set([w.lower() for w in nltk.word_tokenize(descstr) if not w.lower() in stop_words])
 
     # Remove punctuations & brackets
-    descset = descset.difference({'.', ',', ':', ';', '“', '”', '"', "'", "(", ")"})
+    descset = descset.difference({'.'})
 
     # Singularise nouns (duplicates will automatically be merged since this is a set)
     descset_n = set([w for w in descset
