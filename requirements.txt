@@ -1,6 +1,8 @@
 pandas
 python-dwca-reader
-argparse
+ollama
 nltk
-pandas
+argparse
 inflect
+langchain
+langchain-groq
